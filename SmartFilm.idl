@@ -1,0 +1,51 @@
+// SmartFilm.idl : ActiveX 控件项目的类型库源。
+
+// 此文件将由 MIDL 编译器工具处理以
+// 产生类型库(SmartFilm.tlb)，该类型库将成为
+// SmartFilm.ocx.
+
+#include <olectl.h>
+#include <idispids.h>
+
+[ uuid(83079A3C-1F35-465D-870E-22F01257A5B3), version(1.0),
+  control ]
+library SmartFilmLib
+{
+	importlib(STDOLE_TLB);
+
+	//  CSmartFilmCtrl 的主调度接口
+	[ 
+		uuid(F343D629-5863-4806-BA82-04DD7D83DD5D)	
+	]
+	dispinterface _DSmartFilm
+	{
+		properties:
+		methods:
+
+			[id(DISPID_ABOUTBOX)] void AboutBox();
+	};
+
+	//  CSmartFilmCtrl 的事件调度接口
+
+	[ 
+		uuid(0A2E3D85-99D0-44EF-A491-D5A22C3123DE)	
+	]
+	dispinterface _DSmartFilmEvents
+	{
+		properties:
+			//  事件接口没有任何属性
+
+		methods:
+	};
+
+	//  CSmartFilmCtrl 的类信息
+	[
+		uuid(B5E7A217-BC72-41D1-964B-F42DBA8301B5)
+	]
+	coclass SmartFilm
+	{
+		[default] dispinterface _DSmartFilm;
+		[default, source] dispinterface _DSmartFilmEvents;
+	};
+
+};
