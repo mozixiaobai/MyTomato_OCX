@@ -25,6 +25,8 @@ BOOL CSmartFilmApp::InitInstance()
 	if (bInit)
 	{
 		// TODO: 在此添加您自己的模块初始化代码。
+		AfxOleInit();                       //6-1允许使用控件
+		AfxEnableControlContainer();        //6-1允许控件本身作为容器
 	}
 
 	return bInit;

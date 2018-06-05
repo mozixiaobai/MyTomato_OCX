@@ -20,6 +20,7 @@ IMPLEMENT_DYNCREATE(CSmartFilmCtrl, COleControl)
 
 BEGIN_MESSAGE_MAP(CSmartFilmCtrl, COleControl)
 	ON_OLEVERB(AFX_IDS_VERB_PROPERTIES, OnProperties)
+	ON_WM_CREATE()
 END_MESSAGE_MAP()
 
 
@@ -35,8 +36,14 @@ END_DISPATCH_MAP()
 // 事件映射
 
 BEGIN_EVENT_MAP(CSmartFilmCtrl, COleControl)
+	EVENT_CUSTOM_ID("InitOver", eventidInitOver, InitOver, VTS_NONE)
 END_EVENT_MAP()
 
+//Implementation of IObjectSafety自己添加部分-------------------------------
+BEGIN_INTERFACE_MAP(CSmartFilmCtrl, COleControl)
+	INTERFACE_PART(CSmartFilmCtrl, IID_IObjectSafety, ObjectSafety)
+END_INTERFACE_MAP()
+//-------------------------------------------------------------------------
 
 
 // 属性页
@@ -137,8 +144,10 @@ void CSmartFilmCtrl::OnDraw(
 		return;
 
 	// TODO: 用您自己的绘图代码替换下面的代码。
-	pdc->FillRect(rcBounds, CBrush::FromHandle((HBRUSH)GetStockObject(WHITE_BRUSH)));
-	pdc->Ellipse(rcBounds);
+	CRect tem_rcUI;
+	GetClientRect(&tem_rcUI);
+	m_dlgUI.ShowWindow(SW_SHOW);
+	m_dlgUI.MoveWindow(&tem_rcUI, TRUE);
 }
 
 
@@ -177,3 +186,160 @@ void CSmartFilmCtrl::AboutBox()
 
 
 // CSmartFilmCtrl 消息处理程序
+
+
+int CSmartFilmCtrl::OnCreate(LPCREATESTRUCT lpCreateStruct)
+{
+	if (COleControl::OnCreate(lpCreateStruct) == -1)
+		return -1;
+
+	// TODO:  在此添加您专用的创建代码
+	m_dlgUI.m_hWnd=m_hWnd;
+	m_dlgUI.Create(IDD_DLG_UI, this);
+
+
+	return 0;
+}
+
+// Implementation of IObjectSafety自己添加部分---------------------------
+STDMETHODIMP CSmartFilmCtrl::XObjectSafety::GetInterfaceSafetyOptions(
+	REFIID riid,
+	DWORD __RPC_FAR *pdwSupportedOptions,
+	DWORD __RPC_FAR *pdwEnabledOptions)
+{
+	METHOD_PROLOGUE_EX(CSmartFilmCtrl, ObjectSafety)
+
+		if (!pdwSupportedOptions || !pdwEnabledOptions)
+		{
+			return E_POINTER;
+		}
+
+		*pdwSupportedOptions = INTERFACESAFE_FOR_UNTRUSTED_CALLER | INTERFACESAFE_FOR_UNTRUSTED_DATA;
+		*pdwEnabledOptions = 0;
+
+		if (NULL == pThis->GetInterface(&riid))
+		{
+			TRACE("Requested interface is not supported.\n");
+			return E_NOINTERFACE;
+		}
+
+		// What interface is being checked out anyhow?
+		OLECHAR szGUID[39];
+		int i = StringFromGUID2(riid, szGUID, 39);
+
+		if (riid == IID_IDispatch)
+		{
+			// Client wants to know if object is safe for scripting
+			*pdwEnabledOptions = INTERFACESAFE_FOR_UNTRUSTED_CALLER;
+			return S_OK;
+		}
+		else if (riid == IID_IPersistPropertyBag
+			|| riid == IID_IPersistStreamInit
+			|| riid == IID_IPersistStorage
+			|| riid == IID_IPersistMemory)
+		{
+			// Those are the persistence interfaces COleControl derived controls support
+			// as indicated in AFXCTL.H
+			// Client wants to know if object is safe for initializing from persistent data
+			*pdwEnabledOptions = INTERFACESAFE_FOR_UNTRUSTED_DATA;
+			return S_OK;
+		}
+		else
+		{
+			// Find out what interface this is, and decide what options to enable
+			TRACE("We didn't account for the safety of this interface, and it's one we support...\n");
+			return E_NOINTERFACE;
+		}
+}
+
+STDMETHODIMP CSmartFilmCtrl::XObjectSafety::SetInterfaceSafetyOptions(
+	REFIID riid,
+	DWORD dwOptionSetMask,
+	DWORD dwEnabledOptions)
+{
+	METHOD_PROLOGUE_EX(CSmartFilmCtrl, ObjectSafety)
+
+		OLECHAR szGUID[39];
+	// What is this interface anyway?
+	// We can do a quick lookup in the registry under HKEY_CLASSES_ROOT\Interface
+	int i = StringFromGUID2(riid, szGUID, 39);
+
+	if (0 == dwOptionSetMask && 0 == dwEnabledOptions)
+	{
+		// the control certainly supports NO requests through the specified interface
+		// so it's safe to return S_OK even if the interface isn't supported.
+		return S_OK;
+	}
+
+	// Do we support the specified interface?
+	if (NULL == pThis->GetInterface(&riid))
+	{
+		TRACE1("%s is not support.\n", szGUID);
+		return E_FAIL;
+	}
+
+
+	if (riid == IID_IDispatch)
+	{
+		TRACE("Client asking if it's safe to call through IDispatch.\n");
+		TRACE("In other words, is the control safe for scripting?\n");
+		if (INTERFACESAFE_FOR_UNTRUSTED_CALLER == dwOptionSetMask && INTERFACESAFE_FOR_UNTRUSTED_CALLER == dwEnabledOptions)
+		{
+			return S_OK;
+		}
+		else
+		{
+			return E_FAIL;
+		}
+	}
+	else if (riid == IID_IPersistPropertyBag
+		|| riid == IID_IPersistStreamInit
+		|| riid == IID_IPersistStorage
+		|| riid == IID_IPersistMemory)
+	{
+		TRACE("Client asking if it's safe to call through IPersist*.\n");
+		TRACE("In other words, is the control safe for initializing from persistent data?\n");
+
+		if (INTERFACESAFE_FOR_UNTRUSTED_DATA == dwOptionSetMask && INTERFACESAFE_FOR_UNTRUSTED_DATA == dwEnabledOptions)
+		{
+			return NOERROR;
+		}
+		else
+		{
+			return E_FAIL;
+		}
+	}
+	else
+	{
+		TRACE1("We didn't account for the safety of %s, and it's one we support...\n", szGUID);
+		return E_FAIL;
+	}
+}
+
+STDMETHODIMP_(ULONG) CSmartFilmCtrl::XObjectSafety::AddRef()
+{
+	METHOD_PROLOGUE_EX_(CSmartFilmCtrl, ObjectSafety)
+		return (ULONG)pThis->ExternalAddRef();
+}
+
+STDMETHODIMP_(ULONG) CSmartFilmCtrl::XObjectSafety::Release()
+{
+	METHOD_PROLOGUE_EX_(CSmartFilmCtrl, ObjectSafety)
+		return (ULONG)pThis->ExternalRelease();
+}
+
+STDMETHODIMP CSmartFilmCtrl::XObjectSafety::QueryInterface(
+	REFIID iid, LPVOID* ppvObj)
+{
+	METHOD_PROLOGUE_EX_(CSmartFilmCtrl, ObjectSafety)
+		return (HRESULT)pThis->ExternalQueryInterface(&iid, ppvObj);
+}
+
+// ------------------------------------------------------------------------
+
+
+int CSmartFilmCtrl::Init(void)
+{
+	
+	return 0;
+}
