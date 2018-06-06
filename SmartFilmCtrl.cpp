@@ -343,3 +343,15 @@ int CSmartFilmCtrl::Init(void)
 	
 	return 0;
 }
+
+
+int CSmartFilmCtrl::UnInit(void)
+{
+	return 0;
+}
+
+
+LONG CSmartFilmCtrl::SetUI(int uitype)
+{
+	return 0;
+}

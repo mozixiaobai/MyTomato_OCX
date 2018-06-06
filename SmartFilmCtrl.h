@@ -61,12 +61,36 @@ public:
 	afx_msg int OnCreate(LPCREATESTRUCT lpCreateStruct);
 
 	CSmartFilmUI m_dlgUI;
-	int Init(void);
+	
 protected:
 
 	void InitOver(void)
 	{
 		FireEvent(eventidInitOver, EVENT_PARAM(VTS_NONE));
 	}
+public:
+	/**
+	*  @brief  OCX初始化
+	*  @param[in]
+	*  @param[out]
+	*  @param[ret] 0-成功
+	*/
+	int Init(void);
+
+	/**
+	*  @brief  OCX卸载
+	*  @param[in]  
+	*  @param[out]  
+	*  @param[ret] 0-成功
+	*/
+	int UnInit(void);
+
+	/**
+	*  @brief  设置界面UI布局
+	*  @param[in]  uitype,0-全显, 1-中, 2-左中, 3-右中
+	*  @param[out] 
+	*  @param[ret] 0-成功
+	*/
+	LONG SetUI(int uitype);
 };
 

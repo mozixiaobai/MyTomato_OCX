@@ -37,3 +37,6 @@
 #endif // _WIN64
 #include <afxcontrolbars.h>
 
+/*USB继电器头文件与库*/
+#include "usb_relay_device.h"
+#pragma comment(lib, "usb_relay_device.lib")

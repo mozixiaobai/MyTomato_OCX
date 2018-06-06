@@ -1,6 +1,19 @@
 #pragma once
 #include "uds_videoctrl1.h"
 #include "tinyxml.h"
+#include <vector>
+
+
+
+typedef struct tagPROPERTY
+{
+	CString   m_strName;
+	long      m_lSuport;
+	long      m_lAuto;
+	long      m_lCurValue;
+	long      m_lMaxValue;
+	long      m_lMinValue;
+}PROPERTY;
 
 
 // CSmartFilmUI ¶Ô»°¿ò
@@ -42,6 +55,7 @@ public:
 
 
 	int m_lReturnCode;       //·µ»ØÂë
+	int m_nUIMode;
 	int m_nLastRes;
 	int m_nLastImgType;
 	int m_nLastPreRotate;
@@ -63,6 +77,51 @@ public:
 	int m_nWaterSize;
 	int m_nWaterFont;
 	int m_nWaterMode;
+	int m_nInterpolateReso;
+	int m_nLastIris;
+	int m_nLastBright;
+	int m_nLastExpos;
+	int m_nLastFocus;
+	int m_nLastGama;
+	int m_nLastGain;
+	int m_nLastHue;
+	int m_nLastPan;
+	int m_nLastRoll;
+	int m_nLastTilt;
+	int m_nLastZoom;
+	int m_nLastContrst;
+	int m_nLastSharp;
+	int m_nLastSatura;
+	int m_nLastWhiteB;
+	int m_nLastBackLight;
+	int m_nLastGray;
+	int m_nHDRDelay;
+	int m_nHDRGray;
+	int m_nHDRBackLgt;
+	int m_nNorLightL;
+	int m_nHigLightL;
+	int m_nLowLightL;
+	int m_nNorGrayL;
+	int m_nHigGrayL;
+	int m_nLowGrayL;
+	int m_nNorDelayL;
+	int m_nHigDelayL;
+	int m_nLowDelayL;
+	int m_nNorBackLgtL;
+	int m_nHigBackLgtL;
+	int m_nLowBackLgtL;
+	int m_nNorLight;
+	int m_nNorGray;
+	int m_nHigGray;
+	int m_nLowGray;
+	int m_nNorDelay;
+	int m_nHigDelay;
+	int m_nLowDelay;
+	int m_nNorBackLgt;
+	int m_nHigBackLgt;
+	int m_nLowBackLgt;
+	int m_nLastRelay;
+
 
 	long m_lLeftSite;       //²ÃÇÐ¿ò×ø±ê
 	long m_lTopSite;
@@ -71,7 +130,10 @@ public:
 
 	BOOL m_BShowTips;
 	BOOL m_BSaveFmt;
-	
+	BOOL m_BHDR;
+	BOOL m_nHDRMerge;
+	BOOL m_nHDRLight;
+	BOOL m_BDOC;
 
 
 
@@ -83,4 +145,16 @@ public:
 	BOOL Self_FindCamera(CString xmlpath);
 	void Self_ReadIni(CString inipath);
 	void Self_ReadWaterIni(CString inipath);
+	BOOL Self_FilterRes(CString res);
+	int Self_GetSpyRes(int diyvalue);
+	void Self_EnsureItems(void);
+	void Self_EnsureItems2(void);
+	void Self_ReadXml(CString xmlpath);
+	void Self_SetRelay100(void);
+	void Self_SetRelayZero(void);
+	void Self_SetRelayValue(int dstvalue);
+	afx_msg void OnClose();
+	void Self_SetRelay1(void);
+	CTabCtrl m_conTab;
+	CListCtrl m_conListCtrl;
 };
