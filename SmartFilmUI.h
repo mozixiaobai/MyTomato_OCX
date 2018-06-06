@@ -57,6 +57,7 @@ public:
 	CString m_strSaveDoc;
 	CString m_strWaterColor;
 	CString m_strWaterInfo;
+	CString m_strFileFormat;
 
 
 	int m_lReturnCode;       //·µ»ØÂë

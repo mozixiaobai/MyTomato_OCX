@@ -268,6 +268,43 @@ BOOL CSmartFilmUI::OnInitDialog()
 
 	m_conTab.SetCurSel(0);
 
+	/*7、读取文件格式*/
+	switch(m_nLastImgType)
+	{
+	case 0:
+		m_strFileFormat = _T(".bmp");
+		break;
+	case 1:
+		m_strFileFormat = _T(".jpg");
+		break;
+	case 2:
+		m_strFileFormat = _T(".png");
+		break;
+	case 3:
+		m_strFileFormat = _T(".tif");
+		break;
+	case 4:
+		m_strFileFormat = _T(".pdf");
+		break;
+	case 5:
+		m_strFileFormat = _T(".dcm");
+		break;
+	default:
+		m_strFileFormat = _T(".jpg");
+		break;
+	}
+
+	/*8、默认保存目录不存在则保存至桌面*/
+	if (!PathFileExists(m_strSaveDoc))
+	{
+		//不存在，获取桌面路径，并修改默认路径参数
+		TCHAR MyDir[_MAX_PATH];  
+		SHGetSpecialFolderPath(this->GetSafeHwnd(),MyDir,CSIDL_DESKTOP,0);
+		m_strSaveDoc  = MyDir;
+		m_strSaveDoc += _T("\\");
+	}
+	::WritePrivateProfileString(_T("BaseSet"), _T("SaveDoc"), m_strSaveDoc, m_strIniPath);
+
 
 
 
@@ -461,8 +498,6 @@ void CSmartFilmUI::OnSize(UINT nType, int cx, int cy)
 			}
 
 		}
-
-	
 
 		//2、布局TabCtrl内控件-------------------------------------------------------------------------------
 		CRect  tem_rcTab;
