@@ -1,6 +1,8 @@
 #pragma once
 #include "uds_videoctrl1.h"
 #include "tinyxml.h"
+#include "UDSGetImg.h"
+#include "UDSProImg.h"
 #include <vector>
 
 
@@ -34,6 +36,9 @@ protected:
 
 	DECLARE_MESSAGE_MAP()
 public:
+	CUDSGetImg m_dlgGet;
+	CUDSProImg m_dlgPro;
+
 	CString m_strConfigDoc;  //配置文件目录
 	CString m_strXmlDoc;     //xml模板目录
 	CString m_strThumbDoc;   //图像buffer目录
@@ -157,4 +162,8 @@ public:
 	void Self_SetRelay1(void);
 	CTabCtrl m_conTab;
 	CListCtrl m_conListCtrl;
+	afx_msg void OnSelchangeTabCtrl(NMHDR *pNMHDR, LRESULT *pResult);
+	virtual BOOL PreTranslateMessage(MSG* pMsg);
+	afx_msg void OnPaint();
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 };

@@ -37,6 +37,9 @@ void CSmartFilmUI::DoDataExchange(CDataExchange* pDX)
 
 BEGIN_MESSAGE_MAP(CSmartFilmUI, CDialogEx)
 	ON_WM_CLOSE()
+	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB_CTRL, &CSmartFilmUI::OnSelchangeTabCtrl)
+	ON_WM_PAINT()
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
 
@@ -254,26 +257,17 @@ BOOL CSmartFilmUI::OnInitDialog()
 	}
 
 	/*6、Tab设置*/
-	if (m_nUIMode == 0)
-	{
-		//左中右
+	m_conTab.InsertItem(0, _T("图像获取"));
+	m_conTab.InsertItem(1, _T("图像处理"));
 
-	} 
-	else if(m_nUIMode == 1)
-	{
-		//中
+	m_dlgGet.Create(IDD_DLG_GETIMG, GetDlgItem(IDC_TAB_CTRL));
+	m_dlgPro.Create(IDD_DLG_PROIMG, GetDlgItem(IDC_TAB_CTRL));
 
-	}
-	else if (m_nUIMode == 2)
-	{
-		//左中
+	m_dlgGet.ShowWindow(TRUE);
+	m_dlgPro.ShowWindow(FALSE);
 
-	}
-	else if (m_nUIMode == 3)
-	{
-		//右中
+	m_conTab.SetCurSel(0);
 
-	}
 
 
 
@@ -281,6 +275,204 @@ BOOL CSmartFilmUI::OnInitDialog()
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
+}
+
+
+BOOL CSmartFilmUI::PreTranslateMessage(MSG* pMsg)
+{
+	// TODO: 在此添加专用代码和/或调用基类
+
+	return CDialogEx::PreTranslateMessage(pMsg);
+}
+
+
+void CSmartFilmUI::OnPaint()
+{
+	CPaintDC dc(this); // device context for painting
+	// TODO: 在此处添加消息处理程序代码
+	// 不为绘图消息调用 CDialogEx::OnPaint()
+}
+
+
+void CSmartFilmUI::OnSize(UINT nType, int cx, int cy)
+{
+	CDialogEx::OnSize(nType, cx, cy);
+
+	// TODO: 在此处添加消息处理程序代码
+	if (::IsWindow(GetDlgItem(IDC_TAB_CTRL)->GetSafeHwnd()))
+	{
+		if (IsIconic())
+		{
+			return;
+		}
+		//1、布局三大控件------------------------------------------------------------------------------------
+		CClientDC  dc(this);
+		//1)、将Tab预留3.2 inch，将List预留2.5 inch
+		int tem_nCellWidth = dc.GetDeviceCaps(LOGPIXELSX);
+		int tem_nCellHeight = dc.GetDeviceCaps(LOGPIXELSY);
+		int tem_nTabWidth = (int)((tem_nCellWidth*1.0)*3.2-32);  
+		int tem_nListWidth = (int)((tem_nCellWidth*1.0)*2.5-32); 
+
+		//2)、界面模式+OCX尺寸决定布局
+		CRect  tem_rcClient;
+		GetClientRect(&tem_rcClient);
+		if (m_nUIMode == 0)
+		{
+			//左中右
+			if (tem_rcClient.Width()>(tem_nTabWidth+tem_nListWidth+20))
+			{
+				int tem_nCx = 5;
+				int tem_nCy = 5;
+				int tem_nWidth = tem_nTabWidth;
+				int tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_TAB_CTRL)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_TAB_CTRL)->ShowWindow(TRUE);
+
+				tem_nCx = 5+tem_nTabWidth+5;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()-tem_nTabWidth-tem_nListWidth-20;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+				tem_nCx = tem_rcClient.Width()-tem_nListWidth-5;
+				tem_nCy = 5;
+				tem_nWidth = tem_nListWidth;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_LIST_IMAGE)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(TRUE);
+			} 
+			else
+			{
+				int tem_nCx = 0;
+				int tem_nCy = 5;
+				int tem_nWidth = tem_rcClient.Width()/3;
+				int tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_TAB_CTRL)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_TAB_CTRL)->ShowWindow(TRUE);
+
+				tem_nCx = tem_rcClient.Width()/3;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()/3;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+				tem_nCx = tem_rcClient.Width()*2/3;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()/3;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_LIST_IMAGE)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(TRUE);
+			}
+		} 
+		else if(m_nUIMode == 1)
+		{
+			//中
+			int tem_nCx = 5;
+			int tem_nCy = 5;
+			int tem_nWidth = tem_rcClient.Width()-10;
+			int tem_nHeight = tem_rcClient.Height()-10;
+			GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+			GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+			GetDlgItem(IDC_TAB_CTRL)->ShowWindow(FALSE);
+			GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(FALSE);
+		}
+		else if (m_nUIMode == 2)
+		{
+			//左中
+			if (tem_rcClient.Width()>(tem_nTabWidth+15))
+			{
+				int tem_nCx = 5;
+				int tem_nCy = 5;
+				int tem_nWidth = tem_nTabWidth;
+				int tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_TAB_CTRL)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_TAB_CTRL)->ShowWindow(TRUE);
+
+				tem_nCx = 5+tem_nTabWidth+5;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()-tem_nTabWidth-15;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+				GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(FALSE);
+			} 
+			else
+			{
+				int tem_nCx = 0;
+				int tem_nCy = 5;
+				int tem_nWidth = tem_rcClient.Width()/2;
+				int tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_TAB_CTRL)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_TAB_CTRL)->ShowWindow(TRUE);
+
+				tem_nCx = tem_rcClient.Width()/2;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()/2;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+				GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(FALSE);
+			}
+
+		}
+		else if (m_nUIMode == 3)
+		{
+			//右中
+			if (tem_rcClient.Width()>(tem_nListWidth+15))
+			{
+				int tem_nCx = tem_rcClient.Width()-tem_nListWidth-5;
+				int tem_nCy = 5;
+				int tem_nWidth = tem_nListWidth;
+				int tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_LIST_IMAGE)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(TRUE);
+
+				tem_nCx = 5;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()-tem_nListWidth-15;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+				GetDlgItem(IDC_TAB_CTRL)->ShowWindow(FALSE);
+			} 
+			else
+			{
+				int tem_nCx = 0;
+				int tem_nCy = 5;
+				int tem_nWidth = tem_rcClient.Width()/2;
+				int tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_UDS_VIDEOCTRL1)->ShowWindow(TRUE);
+
+				tem_nCx = tem_rcClient.Width()/2;
+				tem_nCy = 5;
+				tem_nWidth = tem_rcClient.Width()/2;
+				tem_nHeight = tem_rcClient.Height()-10;
+				GetDlgItem(IDC_LIST_IMAGE)->MoveWindow(tem_nCx, tem_nCy, tem_nWidth, tem_nHeight, TRUE);
+				GetDlgItem(IDC_LIST_IMAGE)->ShowWindow(TRUE);
+
+				GetDlgItem(IDC_TAB_CTRL)->ShowWindow(FALSE);
+			}
+
+		}
+
+	
+
+		//2、布局TabCtrl内控件-------------------------------------------------------------------------------
+		CRect  tem_rcTab;
+		m_conTab.GetClientRect(&tem_rcTab);
+		tem_rcTab.top     += 22;
+		tem_rcTab.left += 2;
+
+		m_dlgGet.MoveWindow(&tem_rcTab);
+		m_dlgPro.MoveWindow(&tem_rcTab);
+	}
 }
 
 
@@ -3234,4 +3426,32 @@ void CSmartFilmUI::Self_SetRelay1(void)
 	m_nLastRelay = 1;
 
 	usb_relay_device_close(tem_nDeviceHandle);
+}
+
+//控件方法*****************************************************************************
+
+void CSmartFilmUI::OnSelchangeTabCtrl(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	// TODO: 在此添加控件通知处理程序代码
+	CRect  tem_rcTab;
+	m_conTab.GetClientRect(&tem_rcTab);
+	tem_rcTab.top     += 22;
+	tem_rcTab.left += 2;
+	
+	CRect rtlbl; 
+	int  tem_nCursel = m_conTab.GetCurSel();
+	switch(tem_nCursel)
+	{
+	case 0:
+		m_dlgGet.ShowWindow(TRUE);
+		m_dlgPro.ShowWindow(FALSE);
+		break;
+	case 1:
+		m_dlgGet.ShowWindow(FALSE);
+		m_dlgPro.ShowWindow(TRUE);
+		break;
+	default:
+		break;
+	}
+	*pResult = 0;
 }

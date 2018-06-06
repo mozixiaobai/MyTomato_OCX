@@ -57,6 +57,12 @@
     <ClCompile Include="tinyxmlparser.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="UDSGetImg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="UDSProImg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -87,6 +93,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="tinyxml.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="UDSGetImg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="UDSProImg.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
