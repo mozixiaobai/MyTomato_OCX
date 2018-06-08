@@ -51,6 +51,7 @@ BEGIN_MESSAGE_MAP(CSmartFilmUI, CDialogEx)
 	ON_NOTIFY(TCN_SELCHANGE, IDC_TAB_CTRL, &CSmartFilmUI::OnSelchangeTabCtrl)
 	ON_WM_PAINT()
 	ON_WM_SIZE()
+	ON_MESSAGE(WM_SCANSET, &CSmartFilmUI::OnScanset)
 END_MESSAGE_MAP()
 
 
@@ -3531,6 +3532,13 @@ void CSmartFilmUI::Self_SetRelay1(void)
 	usb_relay_device_close(tem_nDeviceHandle);
 }
 
+
+//消息函数*****************************************************************************
+afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
+{
+	return 0;
+}
+
 //控件方法*****************************************************************************
 
 void CSmartFilmUI::OnSelchangeTabCtrl(NMHDR *pNMHDR, LRESULT *pResult)
@@ -3744,3 +3752,6 @@ int CSmartFilmUI::AdjustWater(int _water, CString _info)
 	m_nWaterMark = _water;
 	return m_nWaterMark;
 }
+
+
+

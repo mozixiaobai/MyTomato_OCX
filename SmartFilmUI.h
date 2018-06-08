@@ -1,4 +1,7 @@
 #pragma once
+#define WM_SCANSET WM_USER+1001
+#define WM_IMGPROCESS WM_USER+1002
+
 #include "uds_videoctrl1.h"
 #include "tinyxml.h"
 #include "UDSGetImg.h"
@@ -180,4 +183,6 @@ public:
 	int AdjustRotate(int _rotate);
 	int AdjustMerge(int _merge);
 	int AdjustWater(int _water, CString _info);
+protected:
+	afx_msg LRESULT OnScanset(WPARAM wParam, LPARAM lParam);
 };
