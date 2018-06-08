@@ -12,6 +12,17 @@ std::vector<CString> g_vcRes;
 int g_nGrayValue[18][2]={{169,42}, {100,32}, {106,33}, {112,34}, {119,35}, {125,36}, {131,37}, {137,38}, {144,39}, {150,40},{156,41}, {162,42}, {169,43}, {175,44}, {181,45}, {187,46}, {194,47}, {200,48}};
 
 
+extern CSmartFilmApp theApp;
+
+
+//加载调焦dll
+typedef long(*pcamInitCameraLib)(); pcamInitCameraLib  camInitCameraLib;           //初始化
+typedef long(*pcamGetDevCount)(long&); pcamGetDevCount camGetDevCount;             //摄像头个数
+typedef long(*pcamGetDevPid)(long, char*); pcamGetDevPid camGetDevPid;             //PID
+typedef long(*pcamGetDevVid)(long, char*); pcamGetDevVid camGetDevVid;             //VID
+typedef char*(*pcamGetDevName)(long); pcamGetDevName   camGetDevName;              //获取设备名称
+typedef long(*pcamSetFocusValue)(long, long); pcamSetFocusValue camSetFocusValue;  //设置焦点值
+
 // CSmartFilmUI 对话框
 
 IMPLEMENT_DYNAMIC(CSmartFilmUI, CDialogEx)
@@ -305,7 +316,40 @@ BOOL CSmartFilmUI::OnInitDialog()
 	}
 	::WritePrivateProfileString(_T("BaseSet"), _T("SaveDoc"), m_strSaveDoc, m_strIniPath);
 
+	/*9、设置Camera焦点*/
+	CString tem_strOCXDir = Self_GetOCXPath();
+	tem_strOCXDir += _T("CmCapture.dll");
+ 	m_hDllInst = LoadLibrary(_T("CmCapture.dll"));
+	if (m_hDllInst)
+	{
+		//1、加载dll函数---------------------------------------------------------------------
+		camInitCameraLib = (pcamInitCameraLib)GetProcAddress(m_hDllInst, "camInitCameraLib");
+		camGetDevPid = (pcamGetDevPid)GetProcAddress(m_hDllInst, "camGetDevPid");
+		camGetDevVid = (pcamGetDevVid)GetProcAddress(m_hDllInst, "camGetDevVid");
+		camGetDevCount = (pcamGetDevCount)GetProcAddress(m_hDllInst, "camGetDevCount");
+		camGetDevName = (pcamGetDevName)GetProcAddress(m_hDllInst, "camGetDevName");
+		camSetFocusValue = (pcamSetFocusValue)GetProcAddress(m_hDllInst, "camSetFocusValue");
 
+		//2、获取当前设备索引-----------------------------------------------------------------
+		int tem_nRC = -1;
+		tem_nRC = camInitCameraLib();
+		for (int i=0; i<tem_nDevNum; i++)
+		{
+			char* tem_cCamName = camGetDevName(i);
+			CString tem_strCamName(tem_cCamName);
+			if (tem_strCamName.Find(_T("Document Scanner")) != -1)
+			{
+				m_nDevIndex = i;
+				break;
+			}
+		}
+		tem_nRC = camSetFocusValue(m_nDevIndex, m_nFocusValue);
+		MessageBox(_T("SetFocus"));
+	}
+	else
+	{
+		MessageBox(_T("加载dll失败"));
+	}
 
 
 
@@ -502,8 +546,8 @@ void CSmartFilmUI::OnSize(UINT nType, int cx, int cy)
 		//2、布局TabCtrl内控件-------------------------------------------------------------------------------
 		CRect  tem_rcTab;
 		m_conTab.GetClientRect(&tem_rcTab);
-		tem_rcTab.top     += 22;
-		tem_rcTab.left += 2;
+		tem_rcTab.top += 20;
+		tem_rcTab.left = 2;
 
 		m_dlgGet.MoveWindow(&tem_rcTab);
 		m_dlgPro.MoveWindow(&tem_rcTab);
@@ -538,6 +582,30 @@ CString CSmartFilmUI::Self_GetMyDocument(void)
 		return tem_strMyDocument;
 	}
 	return tem_strMyDocument;
+}
+
+
+CString CSmartFilmUI::Self_GetOCXPath(void)
+{
+	TCHAR   sDrive[_MAX_DRIVE]; 
+	TCHAR   sDir[_MAX_DIR]; 
+	TCHAR   sFilename[_MAX_FNAME], Filename[_MAX_FNAME]; 
+	TCHAR   sExt[_MAX_EXT]; 
+	CString tem_strOCXPath;
+	// Get the Authorized Serial No. in the UdsSmartScan1.dll in the directory of the OCX
+	int nLen = GetModuleFileName(AfxGetInstanceHandle(), Filename, _MAX_PATH);
+	if (nLen < 3)
+		return false;
+	_tsplitpath(theApp.m_pszHelpFilePath, sDrive, sDir, sFilename, sExt); 
+	CString homeDir(CString(sDrive) + CString(sDir)); 
+	nLen = homeDir.GetLength();
+	if (nLen < 3)
+		return false;
+	if (homeDir.GetAt(nLen-1) != _T('\\')) 
+		homeDir += _T('\\'); 
+
+	tem_strOCXPath = homeDir;
+	return tem_strOCXPath;
 }
 
 
@@ -3489,4 +3557,190 @@ void CSmartFilmUI::OnSelchangeTabCtrl(NMHDR *pNMHDR, LRESULT *pResult)
 		break;
 	}
 	*pResult = 0;
+}
+
+
+//调节方法*****************************************************************************
+//调节亮度、对比度--------------------------------------------------
+int CSmartFilmUI::AdjustBriCst(int _value, int _mode)
+{
+	int tem_nCurValue = _value;
+	long tem_nMax = 0;
+	long tem_nMin = 0;
+	int tem_nRC = 0;
+	if (_mode==0)
+	{
+		m_conOCX.GetBrightnessRange(&tem_nMin, &tem_nMax);
+		//亮度调节
+		if (tem_nCurValue<tem_nMin)
+		{
+			tem_nCurValue = tem_nMin;
+		}
+		else if (tem_nCurValue>tem_nMax)
+		{
+			tem_nCurValue = tem_nMax;
+		}
+		tem_nRC = m_conOCX.SetBrightness(tem_nCurValue, 0);
+	} 
+	else if(_mode==1)
+	{
+		m_conOCX.GetContrastRange(&tem_nMin, &tem_nMax);
+		//对比度调节
+		if (tem_nCurValue<tem_nMin)
+		{
+			tem_nCurValue = tem_nMin;
+		}
+		else if (tem_nCurValue>tem_nMax)
+		{
+			tem_nCurValue = tem_nMax;
+		}
+		tem_nRC = m_conOCX.SetContrast(tem_nCurValue, 0);
+	}
+	return tem_nRC;
+}
+
+
+//调节焦点---------------------------------------------------------
+int CSmartFilmUI::AdjustFocus(int _focus)
+{
+	int tem_nCurValue = _focus;
+	int tem_nRC = 0;
+	if (tem_nCurValue<0)
+	{
+		tem_nCurValue = 0;
+	}
+	else if(tem_nCurValue>255)
+	{
+		tem_nCurValue = 255;
+	}
+	tem_nRC = camSetFocusValue(m_nDevIndex, tem_nCurValue);
+
+	return tem_nRC;
+}
+
+
+//调节灯箱亮度------------------------------------------------------
+int CSmartFilmUI::AdjustLight(int _light)
+{
+	int tem_nCurValue = _light;
+	int tem_nRC = 0;
+	Self_SetRelayValue(_light);
+	return _light;
+}
+
+
+//调节分辨率--------------------------------------------------------
+int CSmartFilmUI::AdjustRes(int _index)
+{
+	int tem_nCurValue = 0;
+	switch(_index)
+	{
+	case 0:
+		tem_nCurValue = 6;
+		break;
+	case 1:
+		tem_nCurValue = 7;
+		break;
+	case 2:
+		tem_nCurValue = 8;
+		break;
+	case 3:
+		tem_nCurValue = 9;
+		break;
+	default:
+		tem_nCurValue = 8;
+		break;
+	}
+	if (tem_nCurValue == m_nInterpolateReso)
+	{
+		int tem_nMaxIndex = Self_GetSpyRes(1);
+		m_conOCX.SetResolutionPro(tem_nMaxIndex, m_nVidoeMode);
+		m_nLastRes = tem_nCurValue;
+	} 
+	else
+	{
+		m_conOCX.SetResolutionPro(tem_nCurValue, m_nVidoeMode);
+		m_nLastRes = tem_nCurValue;
+	}
+	//重新设置灰阶
+	m_conOCX.SetGamma(g_nGrayValue[m_nLastGray][0], 0);     
+	m_conOCX.SetGain(g_nGrayValue[m_nLastGray][1], 0);
+	m_conOCX.SetBacklightCom(m_nLastBackLight, 0);
+	return m_nLastRes;
+}
+
+
+//调节图像格式------------------------------------------------------
+int CSmartFilmUI::AdjustFormat(int _index)
+{
+	switch(_index)
+	{
+	case 0:
+		m_strFileFormat = _T(".bmp");
+		break;
+	case 1:
+		m_strFileFormat = _T(".jpg");
+		break;
+	case 2:
+		m_strFileFormat = _T(".png");
+		break;
+	case 3:
+		m_strFileFormat = _T(".tif");
+		break;
+	case 4:
+		m_strFileFormat = _T(".pdf");
+		break;
+	case 5:
+		m_strFileFormat = _T(".dcm");
+		break;
+	default:
+		m_strFileFormat = _T(".jpg");
+		break;
+	}
+	return _index;
+}
+
+
+//设置视频方向------------------------------------------------------
+int CSmartFilmUI::AdjustRotate(int _rotate)
+{
+	int tem_nCurValue = _rotate;
+	switch(tem_nCurValue)
+	{
+	case 0:
+		m_conOCX.RotatedVideo(0);
+		break;
+	case 1:
+		m_conOCX.RotatedVideo(1);
+		break;
+	case 2:
+		m_conOCX.RotatedVideo(2);
+		break;
+	case 3:
+		m_conOCX.RotatedVideo(3);
+		break;
+	default:
+		m_conOCX.RotatedVideo(0);
+		break;
+	}
+	m_nLastPreRotate = tem_nCurValue;
+	return m_nLastPreRotate;
+}
+
+
+//设置合并方向------------------------------------------------------
+int CSmartFilmUI::AdjustMerge(int _merge)
+{
+	//0-不合并，1-左右合并，2-上下合并
+	m_nLastMergeMode = _merge;
+	return m_nLastMergeMode;
+}
+
+
+//设置水印----------------------------------------------------------
+int CSmartFilmUI::AdjustWater(int _water, CString _info)
+{
+	//0-不添加水印，1-添加水印，_info水印内容
+	m_nWaterMark = _water;
+	return m_nWaterMark;
 }

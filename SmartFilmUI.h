@@ -75,8 +75,8 @@ public:
 	int m_nViewMode;
 	int m_nLowLight;
 	int m_nHigLight;
-	int m_nVidoeMode;
-	int m_nFocusValue;
+//	int m_nVidoeMode;
+//	int m_nFocusValue;
 	int m_nIniTime;
 	int m_nWaterMark;
 	int m_nWaterSite;
@@ -141,7 +141,11 @@ public:
 	BOOL m_nHDRLight;
 	BOOL m_BDOC;
 
-
+	//调焦
+	int       m_nVidoeMode;        //MJPG/YUY2
+	int       m_nFocusValue;       //当前焦点值
+	int       m_nDevIndex;         //当前打开设备索引
+	HINSTANCE m_hDllInst;          //加载调焦dll     
 
 
 
@@ -167,4 +171,13 @@ public:
 	virtual BOOL PreTranslateMessage(MSG* pMsg);
 	afx_msg void OnPaint();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	CString Self_GetOCXPath(void);
+	int AdjustBriCst(int _value, int _mode);
+	int AdjustFocus(int _focus);
+	int AdjustLight(int _light);
+	int AdjustRes(int _index);
+	int AdjustFormat(int _index);
+	int AdjustRotate(int _rotate);
+	int AdjustMerge(int _merge);
+	int AdjustWater(int _water, CString _info);
 };
