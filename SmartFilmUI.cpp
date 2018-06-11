@@ -3536,6 +3536,42 @@ void CSmartFilmUI::Self_SetRelay1(void)
 //消息函数*****************************************************************************
 afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 {
+	MessageBox(_T("收到消息"));
+	int tem_nOperation = (int)wParam;    //操作码
+	int tem_nInfo      = (int)lParam;    //操作信息
+
+	switch(tem_nOperation)
+	{
+	case 0:
+		//预留项
+		break;
+	case 1:
+		//对比度调节
+		if (tem_nInfo!=m_nLastBright)
+		{
+			AdjustBriCst(tem_nInfo, 0);
+			m_nLastBright = tem_nInfo;
+		}
+		break;
+	case 2:
+		//对比度调节
+		if (tem_nInfo!=m_nLastContrst)
+		{
+			AdjustBriCst(tem_nInfo, 1);
+			m_nLastContrst = tem_nInfo;
+		}
+		break;
+	case 3:
+		//灯箱亮度调节
+		MessageBox(_T("灯箱"));
+		if (tem_nInfo != m_nLastRelay)
+		{
+			AdjustLight(tem_nInfo);
+			m_nLastRelay = tem_nInfo;
+		}
+		break;
+
+	}
 	return 0;
 }
 

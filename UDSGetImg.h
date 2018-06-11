@@ -1,6 +1,9 @@
 #pragma once
 #define WM_SCANSET WM_USER+1001
 
+#include "tinyxml.h"
+#include <vector>
+
 
 // CUDSGetImg ¶Ô»°¿ò
 
@@ -31,6 +34,9 @@ public:
 	int m_nViewMode;
 	int m_nFocusValue;
 	int m_nComputer;
+	int m_nLastBright;
+	int m_nLastContrast;
+	int m_nLastLightBox;
 
 
 	long m_lLeftSite;
@@ -38,6 +44,8 @@ public:
 	long m_lRightSite;
 	long m_lBottomSite;
 
+
+	BOOL m_BDocMode;
 
 
 	CString m_strIniPath;
@@ -65,4 +73,13 @@ public:
 	afx_msg void OnClickedChekAwater();
 	CString Self_GetMyDocument(void);
 	void Self_ReadIni(CString inipath);
+	void Self_SetSlider(CString xmlpath);
+	CSliderCtrl m_slidABright;
+	CSliderCtrl m_slidAContrast;
+	CSliderCtrl m_slidALightBox;
+	CComboBox m_conResolution;
+	CComboBox m_conImgType;
+	CSliderCtrl m_slidAdjFocus;
+	CSliderCtrl m_slidComputer;
+	CString m_staComputerD;
 };
