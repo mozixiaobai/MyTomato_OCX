@@ -10,6 +10,7 @@
 extern CString  g_strProXmlPath;
 extern CString  g_strDocXmlPath;        
 extern std::vector<CString> g_vcRes;
+extern HWND g_hMainHwnd;
 
 // CUDSGetImg 对话框
 
@@ -57,6 +58,15 @@ BEGIN_MESSAGE_MAP(CUDSGetImg, CDialogEx)
 	ON_BN_CLICKED(IDC_CHEK_ALEVEL, &CUDSGetImg::OnClickedChekAlevel)
 	ON_BN_CLICKED(IDC_CHEK_AVERTICAL, &CUDSGetImg::OnClickedChekAvertical)
 	ON_BN_CLICKED(IDC_CHEK_AWATER, &CUDSGetImg::OnClickedChekAwater)
+	ON_BN_CLICKED(IDC_BTN_HDR, &CUDSGetImg::OnBnClickedBtnHdr)
+	ON_BN_CLICKED(IDC_BTN_DEFAULT, &CUDSGetImg::OnBnClickedBtnDefault)
+	ON_BN_CLICKED(IDC_BTN_DIR, &CUDSGetImg::OnBnClickedBtnDir)
+	ON_BN_CLICKED(IDC_BTN_WATER, &CUDSGetImg::OnBnClickedBtnWater)
+	ON_BN_CLICKED(IDC_BTN_NAME, &CUDSGetImg::OnBnClickedBtnName)
+	ON_COMMAND(IDC_RADIO_MANUAL, &CUDSGetImg::OnRadioManual)
+	ON_COMMAND(IDC_RADIO_SCAN, &CUDSGetImg::OnRadioScan)
+	ON_BN_CLICKED(IDC_BTN_LDR, &CUDSGetImg::OnBnClickedBtnLdr)
+	ON_BN_CLICKED(IDC_BTN_CAP, &CUDSGetImg::OnBnClickedBtnCap)
 END_MESSAGE_MAP()
 
 
@@ -68,18 +78,6 @@ BOOL CUDSGetImg::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// TODO:  在此添加额外的初始化
-	m_pParentWnd = GetParentOwner();
-	m_hParentWnd = m_pParentWnd->m_hWnd;
-	if (m_hParentWnd==NULL)
-	{
-		MessageBox(_T("查找父窗口失败"));
-	}
-	else
-	{
-		MessageBox(_T("找到父窗口"));
-		::SendMessage(m_hParentWnd, WM_SCANSET, 0, 0);
-	}
-
 
 	//2、获取配置文件路径
 	m_strIniPath  = Self_GetMyDocument();
@@ -505,7 +503,7 @@ void CUDSGetImg::OnCustomdrawSlidAbright(NMHDR *pNMHDR, LRESULT *pResult)
 	tem_strValue.Format(_T("%d"), tem_nCurSel);
 	GetDlgItem(IDC_STA_ABRIGHTV)->SetWindowText(tem_strValue);
 
-	::SendMessage(m_hParentWnd, WM_SCANSET, 1, tem_nCurSel);
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 1, tem_nCurSel);
 	m_nLastBright = tem_nCurSel;
 
 	*pResult = 0;
@@ -521,7 +519,7 @@ void CUDSGetImg::OnCustomdrawSlidAcontrast(NMHDR *pNMHDR, LRESULT *pResult)
 	tem_strValue.Format(_T("%d"), tem_nCurSel);
 	GetDlgItem(IDC_STA_ACONTRASTV)->SetWindowText(tem_strValue);
 
-	::SendMessage(m_hParentWnd, WM_SCANSET, 2, tem_nCurSel);
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 2, tem_nCurSel);
 	m_nLastContrast = tem_nCurSel;
 
 	*pResult = 0;
@@ -532,6 +530,12 @@ void CUDSGetImg::OnCustomdrawSlidAfocus(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
+	int     tem_nCurSel = m_slidAdjFocus.GetPos();
+	CString tem_strValue = _T("");
+	tem_strValue.Format(_T("%d"), tem_nCurSel);
+	GetDlgItem(IDC_STA_AFOCUSV)->SetWindowText(tem_strValue);
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 4, tem_nCurSel);
+
 	*pResult = 0;
 }
 
@@ -544,7 +548,7 @@ void CUDSGetImg::OnCustomdrawSlidAlight(NMHDR *pNMHDR, LRESULT *pResult)
 	CString tem_strValue = _T("");
 	tem_strValue.Format(_T("%d"), tem_nCurSel);
 	GetDlgItem(IDC_STA_ALIGHTV)->SetWindowText(tem_strValue);
-	::SendMessage(m_hParentWnd, WM_SCANSET, 3, tem_nCurSel);
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 3, tem_nCurSel);
 	m_nLastLightBox = tem_nCurSel;
 
 	*pResult = 0;
@@ -555,6 +559,16 @@ void CUDSGetImg::OnCustomdrawSlidAdelay(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
+	if (BST_CHECKED != IsDlgButtonChecked(IDC_CHK_ADELAY))
+	{
+		int tem_nCurSel = m_slidComputer.GetPos();
+		CString tem_strValue = _T("");
+		tem_strValue.Format(_T("%d"), tem_nCurSel);
+		GetDlgItem(IDC_STA_ADELAYV)->SetWindowText(tem_strValue);
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 5, tem_nCurSel);
+		m_nComputer = tem_nCurSel;
+	}
+
 	*pResult = 0;
 }
 
@@ -563,12 +577,34 @@ void CUDSGetImg::OnCustomdrawSlidAdelay(NMHDR *pNMHDR, LRESULT *pResult)
 void CUDSGetImg::OnSelchangeCmbAres()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	int tem_nCurSel = m_conResolution.GetCurSel();
+	if (tem_nCurSel==m_nLastRes)
+	{
+		return;
+	}
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 6, tem_nCurSel);
+	m_nLastRes = tem_nCurSel;	
 }
 
 
 void CUDSGetImg::OnSelchangeCmbAformat()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	int tem_nCurSel = m_conImgType.GetCurSel();
+	if (tem_nCurSel==m_nLastRes)
+	{
+		return;
+	}
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 7, tem_nCurSel);
+	m_nLastRes = tem_nCurSel;	
+}
+
+
+void CUDSGetImg::OnBnClickedBtnDefault()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	Self_SetSlider(g_strProXmlPath);
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 8, 0);
 }
 
 
@@ -576,25 +612,44 @@ void CUDSGetImg::OnSelchangeCmbAformat()
 void CUDSGetImg::OnRadio0()
 {
 	// TODO: 在此添加命令处理程序代码
-	MessageBox(_T(""));
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_RADIO_0))
+	{
+		int     tem_nCurSel   = 0;
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 9, tem_nCurSel);
+	} 
 }
 
 
 void CUDSGetImg::OnRadio90()
 {
 	// TODO: 在此添加命令处理程序代码
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_RADIO_90))
+	{
+		int     tem_nCurSel   = 1;
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 9, tem_nCurSel);
+	} 
 }
 
 
 void CUDSGetImg::OnRadio180()
 {
 	// TODO: 在此添加命令处理程序代码
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_RADIO_180))
+	{
+		int     tem_nCurSel = 2;
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 9, tem_nCurSel);
+	} 
 }
 
 
 void CUDSGetImg::OnRadio270()
 {
 	// TODO: 在此添加命令处理程序代码
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_RADIO_270))
+	{
+		int     tem_nCurSel = 3;
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 9, tem_nCurSel);
+	} 
 }
 
 
@@ -602,16 +657,237 @@ void CUDSGetImg::OnRadio270()
 void CUDSGetImg::OnClickedChekAlevel()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	int     tem_nCurSel   = 0;
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_CHEK_ALEVEL))
+	{
+		((CButton*)GetDlgItem(IDC_CHEK_AVERTICAL))->SetCheck(FALSE);
+		tem_nCurSel = 1;
+	}
+	else
+	{
+		if (BST_CHECKED == IsDlgButtonChecked(IDC_CHEK_AVERTICAL))
+		{
+			tem_nCurSel = 2;
+		}
+		else
+		{
+			tem_nCurSel = 0;
+		}
+	}
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 10, tem_nCurSel);
 }
 
 
 void CUDSGetImg::OnClickedChekAvertical()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	int     tem_nCurSel   = 0;
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_CHEK_AVERTICAL))
+	{
+		((CButton*)GetDlgItem(IDC_CHEK_ALEVEL))->SetCheck(FALSE);
+		tem_nCurSel = 2;
+	}
+	else
+	{
+		if (BST_CHECKED == IsDlgButtonChecked(IDC_CHEK_ALEVEL))
+		{
+			tem_nCurSel = 1;
+		}
+		else
+		{
+			tem_nCurSel = 0;
+		}
+	}
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 10, tem_nCurSel);
 }
 
 
 void CUDSGetImg::OnClickedChekAwater()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	//水印开关
+	int tem_nCurSel   = 0;
+	CString tem_strCurSel = _T("");
+	if (BST_CHECKED==IsDlgButtonChecked(IDC_CHEK_AWATER))
+	{
+		tem_nCurSel = 1;
+	} 
+	else
+	{
+		tem_nCurSel = 0;
+	}
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 12, tem_nCurSel);
+	tem_strCurSel.Format(_T("%d"), tem_nCurSel);
+	::WritePrivateProfileString(_T("BaseSet"), _T("WaterMark"), tem_strCurSel, m_strIniPath); 
+}
+
+
+void CUDSGetImg::OnBnClickedBtnWater()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 13, 0);
+}
+
+
+void CUDSGetImg::OnBnClickedBtnDir()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 11, 0);
+}
+
+
+void CUDSGetImg::OnBnClickedBtnName()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 14, 0);
+}
+
+
+void CUDSGetImg::Self_ResetUI(CString xmlpath)
+{
+	int              tem_nOpen     = 0;
+	int              tem_nAuto     = 0;
+	int              tem_nSetValue = 0;
+	int              tem_nMaxValue = 0;
+	int              tem_nMinValue = 0;
+	const char*      tem_cInfo;
+
+	CStringA    tem_straXmlPath(xmlpath);
+	const char* tem_cXmlPath = tem_straXmlPath.GetString();
+
+	TiXmlDocument    tem_xmlDoc;
+	tem_xmlDoc.LoadFile(tem_cXmlPath);
+
+
+	TiXmlElement*    tem_xmlRootElt = tem_xmlDoc.RootElement();
+	TiXmlElement*    tem_xmlChildElt= tem_xmlRootElt->FirstChildElement();
+	tem_xmlChildElt = tem_xmlChildElt->NextSiblingElement();
+	tem_cInfo = tem_xmlChildElt->Value();
+	TiXmlAttribute*  tem_xmlChildAtb= tem_xmlChildElt->FirstAttribute();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nAuto = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nSetValue  = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nMaxValue  = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nMinValue  = tem_xmlChildAtb->IntValue();
+
+
+	for(int i=0; i<22; i++)
+	{
+		tem_xmlChildElt = tem_xmlChildElt->NextSiblingElement();
+	}
+	tem_cInfo = tem_xmlChildElt->Value();
+	tem_xmlChildAtb= tem_xmlChildElt->FirstAttribute();
+	tem_nOpen      = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nAuto      = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nSetValue  = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nMaxValue  = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nMinValue  = tem_xmlChildAtb->IntValue();
+
+	//判断模板中DOC是否开启
+	if (tem_nOpen)
+	{
+		//反射稿打开
+		m_BDocMode = TRUE;
+		m_nViewMode = 3;
+	}
+	else
+	{
+		//反射稿关闭，透射稿必打开，预览模式不能为3
+		m_BDocMode = FALSE;
+		m_nViewMode = 1;
+	}
+
+	if (m_nViewMode == 0)
+	{
+		((CButton*)GetDlgItem(IDC_RADIO_MANUAL))->SetCheck(TRUE);
+	} 
+	else if(m_nViewMode == 1)
+	{
+		((CButton*)GetDlgItem(IDC_RADIO_MANUAL))->SetCheck(TRUE);
+
+	}
+	else if (m_nViewMode == 2)
+	{
+		((CButton*)GetDlgItem(IDC_RADIO_MANUAL))->SetCheck(FALSE);
+	}
+	else if (m_nViewMode == 3)
+	{
+		((CButton*)GetDlgItem(IDC_RADIO_MANUAL))->SetCheck(FALSE);
+	}
+
+
+	//分辨率UI初始化
+	tem_xmlChildElt = tem_xmlChildElt->NextSiblingElement();
+	tem_xmlChildAtb= tem_xmlChildElt->FirstAttribute();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nSetValue  = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	m_conResolution.SetCurSel(tem_nSetValue);
+
+	//图像格式UI初始化
+	tem_xmlChildElt = tem_xmlChildElt->NextSiblingElement();
+	tem_xmlChildAtb= tem_xmlChildElt->FirstAttribute();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_nSetValue  = tem_xmlChildAtb->IntValue();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	tem_xmlChildAtb= tem_xmlChildAtb->Next();
+	m_conImgType.SetCurSel(tem_nSetValue);
+}
+
+
+void CUDSGetImg::OnRadioManual()
+{
+	// TODO: 在此添加命令处理程序代码
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_RADIO_MANUAL))
+	{
+		((CButton*)GetDlgItem(IDC_RADIO_MANUAL))->SetCheck(TRUE);
+		((CButton*)GetDlgItem(IDC_RADIO_SCAN))->SetCheck(FALSE);
+		m_nViewMode = 1;
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 15, 0);
+	}
+}
+
+
+void CUDSGetImg::OnRadioScan()
+{
+	// TODO: 在此添加命令处理程序代码
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_RADIO_SCAN))
+	{
+		((CButton*)GetDlgItem(IDC_RADIO_MANUAL))->SetCheck(FALSE);
+		((CButton*)GetDlgItem(IDC_RADIO_SCAN))->SetCheck(TRUE);
+		m_nViewMode = 1;
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 15, 2);
+	}
+}
+
+
+void CUDSGetImg::OnBnClickedBtnHdr()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 16, 0);
+}
+
+
+
+void CUDSGetImg::OnBnClickedBtnLdr()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 16, 1);
+}
+
+
+void CUDSGetImg::OnBnClickedBtnCap()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_SCANSET, 16, 2);
 }

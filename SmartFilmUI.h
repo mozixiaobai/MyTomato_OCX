@@ -6,6 +6,13 @@
 #include "tinyxml.h"
 #include "UDSGetImg.h"
 #include "UDSProImg.h"
+#include "UDSWaterMark.h"
+#include "UDSNameSet.h"
+#include "ximage.h"
+#include "IMAGEAndDCM.h"    //JPG转DCM库
+#include "pdflib.h"
+#include "pdflib.hpp"
+#include "Shellapi.h"
 #include <vector>
 
 
@@ -41,6 +48,8 @@ protected:
 public:
 	CUDSGetImg m_dlgGet;
 	CUDSProImg m_dlgPro;
+	CUDSWaterMark m_dlgWater;
+	CUDSNameSet m_dlgName;
 
 	CString m_strConfigDoc;  //配置文件目录
 	CString m_strXmlDoc;     //xml模板目录
@@ -80,6 +89,9 @@ public:
 	int m_nHigLight;
 //	int m_nVidoeMode;
 //	int m_nFocusValue;
+	int m_nRedValue;
+	int m_nGreenValue;
+	int m_nBlueValue;
 	int m_nIniTime;
 	int m_nWaterMark;
 	int m_nWaterSite;
@@ -130,6 +142,11 @@ public:
 	int m_nHigBackLgt;
 	int m_nLowBackLgt;
 	int m_nLastRelay;
+	int m_nIntervalTime;
+	int m_nImageCount;     //拍照计数
+	int m_nPrcsIndex;
+	int m_nThumbWidth;    
+	int m_nThumbHeight;
 
 
 	long m_lLeftSite;       //裁切框坐标
@@ -143,6 +160,12 @@ public:
 	BOOL m_nHDRMerge;
 	BOOL m_nHDRLight;
 	BOOL m_BDOC;
+
+	std::vector<CString>   m_vcImgName;         //图像名    
+	std::vector<CString>   m_vcThumbPath;       //缩略图路径
+	std::vector<CString>   m_vcFilePath;       //拍摄文件路径
+
+	CImageList m_imagelist;
 
 	//调焦
 	int       m_nVidoeMode;        //MJPG/YUY2
@@ -185,4 +208,24 @@ public:
 	int AdjustWater(int _water, CString _info);
 protected:
 	afx_msg LRESULT OnScanset(WPARAM wParam, LPARAM lParam);
+public:
+	int AdjustDelay(int _delay);
+	int Self_GetIntervalTime(void);
+	void AdjustRelay(int value, int src);
+	double Self_GetAvgGray(CString imgpath);
+	CString Self_SlcSaveDoc(void);
+	void Slef_ChangeSavePath(CString savedir);
+	void Self_ReadNameRule(void);
+	void Self_CaptureImg(CString imgname);
+	CString Self_NamingFile(int count);
+	CString Self_InterPolateImage(CString srcImage, CString dstImage, int index);
+	void Self_AddWaterMark(CString imgpath);
+	CString Self_CreateThumb(CString srcimg, CString dstimg);
+	int GetTypeFromFileName(LPCTSTR pstr);
+	int Self_GetFontSize(int index);
+	CString Self_GetFontName(int index);
+	BOOL ThumbaiList(int thumbwidth, int thumbheight);
+	CString Self_GetTimeInfo(void);
+	int Self_GetFontWidth(LOGFONT text, CString textinfo);
+	CString Self_GetPDFFromImg(CString imgpath, CString pdfpath);
 };

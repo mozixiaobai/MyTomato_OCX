@@ -23,8 +23,6 @@ protected:
 
 	DECLARE_MESSAGE_MAP()
 public:
-	CWnd*      m_pParentWnd;
-	HWND       m_hParentWnd;
 
 	int m_nLastRes;
 	int m_nLastImgType;
@@ -82,4 +80,14 @@ public:
 	CSliderCtrl m_slidAdjFocus;
 	CSliderCtrl m_slidComputer;
 	CString m_staComputerD;
+	afx_msg void OnBnClickedBtnHdr();
+	afx_msg void OnBnClickedBtnDefault();
+	void Self_ResetUI(CString xmlpath);
+	afx_msg void OnBnClickedBtnDir();
+	afx_msg void OnBnClickedBtnWater();
+	afx_msg void OnBnClickedBtnName();
+	afx_msg void OnRadioManual();
+	afx_msg void OnRadioScan();
+	afx_msg void OnBnClickedBtnLdr();
+	afx_msg void OnBnClickedBtnCap();
 };

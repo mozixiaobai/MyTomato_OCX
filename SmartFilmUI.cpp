@@ -10,7 +10,7 @@ CString  g_strProXmlPath;        //透射稿默认模板
 CString  g_strDocXmlPath;        //反射稿默认模板
 std::vector<CString> g_vcRes;
 int g_nGrayValue[18][2]={{169,42}, {100,32}, {106,33}, {112,34}, {119,35}, {125,36}, {131,37}, {137,38}, {144,39}, {150,40},{156,41}, {162,42}, {169,43}, {175,44}, {181,45}, {187,46}, {194,47}, {200,48}};
-
+HWND g_hMainHwnd;
 
 extern CSmartFilmApp theApp;
 
@@ -106,6 +106,10 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_nWaterFont = 0;
 	m_nWaterMode = 0;
 	m_nInterpolateReso = 0;
+	m_nImageCount = 0;
+	m_nPrcsIndex = -1;
+	m_nThumbWidth = 160;
+	m_nThumbHeight = 130;
 
 	m_lReturnCode  = -1;
 	m_lLeftSite = 0;       //裁切框坐标
@@ -116,7 +120,7 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_BShowTips = FALSE;
 	m_BSaveFmt = FALSE;
 
-	
+	g_hMainHwnd = this->m_hWnd;
 
 	/*2、目录已经文件路径*/
 	//配置文件目录
@@ -320,7 +324,7 @@ BOOL CSmartFilmUI::OnInitDialog()
 	/*9、设置Camera焦点*/
 	CString tem_strOCXDir = Self_GetOCXPath();
 	tem_strOCXDir += _T("CmCapture.dll");
- 	m_hDllInst = LoadLibrary(_T("CmCapture.dll"));
+ 	m_hDllInst = LoadLibrary(tem_strOCXDir);
 	if (m_hDllInst)
 	{
 		//1、加载dll函数---------------------------------------------------------------------
@@ -345,14 +349,19 @@ BOOL CSmartFilmUI::OnInitDialog()
 			}
 		}
 		tem_nRC = camSetFocusValue(m_nDevIndex, m_nFocusValue);
-		MessageBox(_T("SetFocus"));
 	}
+
+	/*10、设置拍照延时*/
+	/*
+	if (m_nIniTime == 0)
+	{
+		m_nIntervalTime = Self_GetIntervalTime();
+	} 
 	else
 	{
-		MessageBox(_T("加载dll失败"));
+		m_nIntervalTime = m_nIniTime*1000;
 	}
-
-
+	*/
 
 
 	return TRUE;  // return TRUE unless you set the focus to a control
@@ -3536,9 +3545,11 @@ void CSmartFilmUI::Self_SetRelay1(void)
 //消息函数*****************************************************************************
 afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 {
-	MessageBox(_T("收到消息"));
 	int tem_nOperation = (int)wParam;    //操作码
 	int tem_nInfo      = (int)lParam;    //操作信息
+
+	CString tem_strSlcDoc= _T("");
+	CString tem_strImgName = _T("");
 
 	switch(tem_nOperation)
 	{
@@ -3546,11 +3557,10 @@ afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 		//预留项
 		break;
 	case 1:
-		//对比度调节
+		//亮度调节
 		if (tem_nInfo!=m_nLastBright)
 		{
 			AdjustBriCst(tem_nInfo, 0);
-			m_nLastBright = tem_nInfo;
 		}
 		break;
 	case 2:
@@ -3558,16 +3568,124 @@ afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 		if (tem_nInfo!=m_nLastContrst)
 		{
 			AdjustBriCst(tem_nInfo, 1);
-			m_nLastContrst = tem_nInfo;
 		}
 		break;
 	case 3:
 		//灯箱亮度调节
-		MessageBox(_T("灯箱"));
 		if (tem_nInfo != m_nLastRelay)
 		{
 			AdjustLight(tem_nInfo);
-			m_nLastRelay = tem_nInfo;
+		}
+		break;
+	case 4:
+		//焦点调节
+		if (tem_nInfo != m_nFocusValue)
+		{
+			AdjustFocus(tem_nInfo);
+		}
+		break;
+	case 5:
+		//调节延时
+		if (tem_nInfo*1000 != m_nIntervalTime)
+		{
+			AdjustDelay(tem_nInfo);
+		}
+		break;
+	case 6:
+		//调节分辨率
+		if (tem_nInfo != m_nLastRes)
+		{
+			AdjustRes(tem_nInfo);
+		}
+		break;
+	case 7:
+		//调节图像格式
+		if (tem_nInfo != m_nLastImgType)
+		{
+			AdjustFormat(tem_nInfo);
+		}
+		break;
+	case 8:
+		//恢复默认参数
+		Self_ReadXml(g_strProXmlPath);
+		m_dlgGet.Self_ResetUI(g_strProXmlPath);
+		break;
+	case 9:
+		//设置旋转方向
+		if (tem_nInfo != m_nLastPreRotate)
+		{
+			AdjustRotate(tem_nInfo);
+		}
+		break;
+	case 10:
+		//设置合并方式
+		if (tem_nInfo != m_nLastMergeMode)
+		{
+			m_nLastMergeMode = tem_nInfo;
+		}
+		break;
+	case 11:
+		//选择路径
+		tem_strSlcDoc = Self_SlcSaveDoc(); 
+		if (tem_strSlcDoc!=_T(""))
+		{
+			m_strSaveDoc = tem_strSlcDoc;
+		}
+		break;
+	case 12:
+		//水印开关
+		if (tem_nInfo==1)
+		{
+			m_nWaterMark = 1;
+		}
+		else
+		{
+			m_nWaterMark = 0;
+		}
+		break;
+	case 13:
+		//打开水印设置界面
+		if(IDOK == m_dlgWater.DoModal())
+		{
+			Self_ReadWaterIni(m_strIniPath);
+		}
+		break;
+	case 14:
+		//命名设置
+		Self_ReadNameRule();
+		break;
+	case 15:
+		//固定区域/浏览模式
+		if (tem_nInfo==0)
+		{
+			//固定区域
+			m_conOCX.ManualImageCrop(TRUE);
+			m_conOCX.SetMessage(1);
+			m_conOCX.SetRectValue(m_lLeftSite, m_lTopSite, m_lRightSite, m_lBottomSite);
+			m_conOCX.SetMessage(0);
+		} 
+		else if(tem_nInfo==2)
+		{
+			m_conOCX.ManualImageCrop(FALSE);
+			m_conOCX.AdjuestImageCrop(FALSE);
+		}
+		break;
+	case 16:
+		//拍照
+		if (tem_nInfo==0)
+		{
+			//高密度
+		} 
+		else if(tem_nInfo==1)
+		{
+			//低密度
+		}
+		else
+		{
+			//普通拍摄
+			tem_strImgName  = Self_NamingFile(m_nImageCount);
+			Self_CaptureImg(tem_strImgName);
+			m_nPrcsIndex = -1;
 		}
 		break;
 
@@ -3625,6 +3743,7 @@ int CSmartFilmUI::AdjustBriCst(int _value, int _mode)
 			tem_nCurValue = tem_nMax;
 		}
 		tem_nRC = m_conOCX.SetBrightness(tem_nCurValue, 0);
+		m_nLastBright = tem_nCurValue;
 	} 
 	else if(_mode==1)
 	{
@@ -3639,6 +3758,7 @@ int CSmartFilmUI::AdjustBriCst(int _value, int _mode)
 			tem_nCurValue = tem_nMax;
 		}
 		tem_nRC = m_conOCX.SetContrast(tem_nCurValue, 0);
+		m_nLastContrst = tem_nCurValue;
 	}
 	return tem_nRC;
 }
@@ -3658,6 +3778,7 @@ int CSmartFilmUI::AdjustFocus(int _focus)
 		tem_nCurValue = 255;
 	}
 	tem_nRC = camSetFocusValue(m_nDevIndex, tem_nCurValue);
+	m_nFocusValue = _focus;
 
 	return tem_nRC;
 }
@@ -3669,7 +3790,174 @@ int CSmartFilmUI::AdjustLight(int _light)
 	int tem_nCurValue = _light;
 	int tem_nRC = 0;
 	Self_SetRelayValue(_light);
+	m_nLastRelay = _light;
 	return _light;
+}
+
+
+//调节延时---------------------------------------------------------
+int CSmartFilmUI::AdjustDelay(int _delay)
+{
+	m_nIntervalTime = _delay*1000;
+	return m_nIntervalTime;
+}
+
+
+//自动获取延时------------------------------------------------------
+int CSmartFilmUI::Self_GetIntervalTime(void)
+{
+	std::vector<CString> tem_vcBuffers;
+	//预览模式
+	m_conOCX.ManualImageCrop(FALSE);
+	m_conOCX.AdjuestImageCrop(FALSE);
+
+	int tem_nCapCount = 0;
+	/*a、拍摄首张图像*/
+
+
+	/*b、调节灯箱亮度*/
+	AdjustRelay(50, 10);
+	DWORD tem_DBegin = GetTickCount();
+	double tem_dLastGray = 0.0, tem_dNextGray = 5.0, tem_dMidGray=0.0;
+	/*c、拍摄第一幅图像*/
+	CString tem_strLast = m_strThumbDoc;
+	tem_strLast += _T("\\CountTime_1.jpg");
+
+	m_conOCX.CaptureImage(tem_strLast);
+	tem_vcBuffers.push_back(tem_strLast);
+	if(PathFileExists(tem_strLast))
+	{
+		tem_nCapCount++;
+		tem_dLastGray = Self_GetAvgGray(tem_strLast);
+	}
+
+	while(abs(tem_dNextGray-tem_dLastGray)>=3)
+	{
+		CString tem_strNext = m_strThumbDoc;
+		CString str;
+		str.Format(_T("%d"), tem_nCapCount);
+		tem_strNext += _T("\\CountTime_2_");
+		tem_strNext += str;
+		tem_strNext += _T(".jpg");
+		/*d、拍摄下一幅图像*/
+		m_conOCX.CaptureImage(tem_strNext);
+		tem_vcBuffers.push_back(tem_strNext);
+		if(PathFileExists(tem_strNext))
+		{
+			tem_nCapCount++;
+			tem_dNextGray = Self_GetAvgGray(tem_strNext);
+		}
+
+		if (abs(tem_dNextGray-tem_dLastGray)<3)
+		{
+			break;
+		} 
+		else
+		{
+			tem_dLastGray = tem_dNextGray;
+			tem_dNextGray = 0;
+		}
+	}
+	DWORD tem_DEnd = GetTickCount();
+	/*e、求平均时长*/
+	int tem_nAvgTime = 2000;
+	if (tem_nCapCount!=0)
+	{
+		tem_nAvgTime = (int)(tem_DEnd-tem_DBegin)/tem_nCapCount;
+	}
+
+	/*f、删除缓存图像，恢复灯箱亮度*/
+	std::vector<CString>::iterator tem_it;
+	for (tem_it = tem_vcBuffers.begin(); tem_it != tem_vcBuffers.end(); tem_it++)
+	{
+		::DeleteFile(*tem_it);
+	}
+
+	AdjustRelay(10, 50);
+
+	if (m_BDOC)
+	{
+		//恢复为自动裁切
+		m_conOCX.ManualImageCrop(FALSE);
+		m_conOCX.AdjuestImageCrop(TRUE);
+	} 
+	else
+	{
+		//恢复为固定区域
+		m_conOCX.ManualImageCrop(TRUE);
+		m_conOCX.SetMessage(1);
+		m_conOCX.SetRectValue(m_lLeftSite, m_lTopSite, m_lRightSite, m_lBottomSite);
+		m_conOCX.SetMessage(0);
+	}
+
+
+	return tem_nAvgTime;
+}
+
+
+void CSmartFilmUI::AdjustRelay(int value, int src)
+{
+	int tem_nDeviceHandle;
+	struct usb_relay_device_info *tem_pDeviceList;
+	usb_relay_init();
+	tem_pDeviceList = usb_relay_device_enumerate();
+	if (tem_pDeviceList==0)
+	{
+		return;
+	}
+	tem_nDeviceHandle = usb_relay_device_open(tem_pDeviceList);
+
+	if (value>src)
+	{
+		for (int i=0; i<(value-src); i++)
+		{
+			//调亮--------------------------------------------------------
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,2);
+		}	
+	} 
+	else
+	{
+		for (int i=0; i<(src-value); i++)
+		{
+			//调暗---------------------------------------------------------
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_open_one_relay_channel(tem_nDeviceHandle,2);
+
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,1);
+			usb_relay_device_close_one_relay_channel(tem_nDeviceHandle,2);
+		}
+	}
+	usb_relay_device_close(tem_nDeviceHandle);	
+}
+
+
+double CSmartFilmUI::Self_GetAvgGray(CString imgpath)
+{
+
+
+	return 0;
 }
 
 
@@ -3710,6 +3998,10 @@ int CSmartFilmUI::AdjustRes(int _index)
 	m_conOCX.SetGamma(g_nGrayValue[m_nLastGray][0], 0);     
 	m_conOCX.SetGain(g_nGrayValue[m_nLastGray][1], 0);
 	m_conOCX.SetBacklightCom(m_nLastBackLight, 0);
+
+	CString tem_strCurSel = _T("");
+	tem_strCurSel.Format(_T("%d"), _index);
+	::WritePrivateProfileString(_T("BaseSet"), _T("ResIndex"), tem_strCurSel, m_strIniPath); 
 	return m_nLastRes;
 }
 
@@ -3741,6 +4033,12 @@ int CSmartFilmUI::AdjustFormat(int _index)
 		m_strFileFormat = _T(".jpg");
 		break;
 	}
+	m_nLastImgType = _index;
+
+	CString tem_strCurSel = _T("");
+	tem_strCurSel.Format(_T("%d"), m_nLastImgType);
+	::WritePrivateProfileString(_T("BaseSet"), _T("ImgType"), tem_strCurSel, m_strIniPath); 
+
 	return _index;
 }
 
@@ -3790,4 +4088,1245 @@ int CSmartFilmUI::AdjustWater(int _water, CString _info)
 }
 
 
+CString CSmartFilmUI::Self_SlcSaveDoc(void)
+{
+	CString    tem_strSltPath;
+	wchar_t    tem_crSltPath[MAX_PATH]; //Unicode使用wchar_t型_t
 
+	ZeroMemory(tem_crSltPath, sizeof(tem_crSltPath));
+	BROWSEINFO   m_broseinfo;
+	m_broseinfo.hwndOwner = m_hWnd;
+	m_broseinfo.pidlRoot  = NULL;
+	m_broseinfo.pszDisplayName = tem_crSltPath;
+	m_broseinfo.lpszTitle = _T("选择保存目录"); 
+	m_broseinfo.ulFlags   = 0;
+	m_broseinfo.lpfn      = NULL;
+	m_broseinfo.lParam    = 0;
+	m_broseinfo.iImage    = 0;
+	LPITEMIDLIST   lp = SHBrowseForFolder(&m_broseinfo);
+	if (lp&&SHGetPathFromIDList(lp, tem_crSltPath))
+	{
+		tem_strSltPath.Format(_T("%s"), tem_crSltPath);
+		//		m_strDefaultPath = tem_strSltPath;
+		//注意后面的\\---------------------------------------------------------------------------------------
+
+		//如果是C、D盘，最后一位自带“\”不用添加
+		CString  tem_strLast = tem_strSltPath;
+		tem_strLast = tem_strLast.Right(1);
+		if (tem_strLast != _T("\\"))
+		{
+			tem_strSltPath += _T("\\");
+		}
+		::WritePrivateProfileString(_T("BaseSet"), _T("SaveDoc"), tem_strSltPath, m_strIniPath);
+	} 
+	return tem_strSltPath;
+}
+
+
+void CSmartFilmUI::Slef_ChangeSavePath(CString savedir)
+{
+	m_strSaveDoc = savedir;
+	::WritePrivateProfileString(_T("BaseSet"), _T("SaveDoc"), savedir, m_strIniPath);
+}
+
+
+void CSmartFilmUI::Self_ReadNameRule(void)
+{
+	if (IDOK == m_dlgName.DoModal())
+	{
+		//重读配置文件
+		int     tem_nRead   = 0;
+		CString tem_strRead = _T("");
+		::GetPrivateProfileString(_T("BaseSet"), _T("NameMode"), _T("没有找到NameMode信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		tem_nRead = _ttoi(tem_strRead);
+		m_nNameMode = tem_nRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NameDate"), _T("没有找到NameDate信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		tem_nRead = _ttoi(tem_strRead);
+		m_nNameDate   = tem_nRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NameTime"), _T("没有找到NameTime信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		tem_nRead = _ttoi(tem_strRead);
+		m_nNameTime   = tem_nRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NameDivide"), _T("没有找到NameDivide信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		m_strNameDivide = tem_strRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NamePre1"), _T("没有找到NamePre1信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		m_strNamePre1 = tem_strRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NamePre2"), _T("没有找到NamePre2信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		m_strNamePre2 = tem_strRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NamePre3"), _T("没有找到NamePre3信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		m_strNamePre3 = tem_strRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NameBegin"), _T("没有找到NameBegin信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		tem_nRead = _ttoi(tem_strRead);
+		m_nNameBegin   = tem_nRead;
+		tem_strRead.ReleaseBuffer();
+
+		::GetPrivateProfileString(_T("BaseSet"), _T("NameBegin2"), _T("没有找到NameBegin2信息"), tem_strRead.GetBuffer(MAX_PATH), MAX_PATH, m_strIniPath);
+		tem_nRead = _ttoi(tem_strRead);
+		m_nNameBegin2   = tem_nRead;
+		tem_strRead.ReleaseBuffer();
+
+		m_nImageCount = 0;
+	}
+}
+
+
+CString CSmartFilmUI::Self_NamingFile(int count)
+{
+	int       tem_nOffset      = count;
+	int       tem_nOffset1     = count+1;
+
+	CString   tem_strCount     = _T("");
+	CString   tem_strBegin     = _T("");
+
+	SYSTEMTIME   tem_stDateTime;
+	CString      tem_strDate = _T("");
+	CString      tem_strTime = _T("");
+	CString      tem_strDivide = _T("");
+
+
+	CString   tem_strOrderName = _T("IMG_");   //次序命名
+	CString   tem_strTimeName  = _T("");       //时间命名
+	CString   tem_strCustomName= _T("");       //自定义名
+	CString   tem_strValue     = _T("");       //写入配置文件
+
+	CString   tem_strNewName   = _T("");       //返回名称
+
+	switch(m_nNameMode)
+	{
+	case 0:
+		//次序命名
+		tem_nOffset += m_nNameBegin2;
+		//把当前的计数值写入ini配置文件
+		tem_strValue.Format(_T("%d"), tem_nOffset+1);
+		::WritePrivateProfileString(_T("BaseSet"), _T("NameBegin2"), tem_strValue, m_strIniPath);
+		tem_strCount.Format(_T("%04d"), tem_nOffset);
+		tem_strOrderName += tem_strCount;
+		tem_strNewName    = tem_strOrderName;	
+		break;
+	case 1:
+		//时间命名
+		GetLocalTime(&tem_stDateTime);
+		if (m_nNameDate == 0)
+		{
+			tem_strDate.Format(_T("%d%02d%02d"), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+		} 
+		else if (m_nNameDate == 1)
+		{
+			tem_strDate.Format(_T("%d.%02d.%02d"), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+		} 
+		else if (m_nNameDate == 2)
+		{
+			tem_strDate.Format(_T("%d-%02d-%02d"), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+		} 
+		else if (m_nNameDate == 3)
+		{
+			tem_strDate.Format(_T("%d_%02d_%02d"), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+		} 
+		else
+		{
+			tem_strDate.Format(_T("%d%02d%02d"), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+		}
+
+		//毫秒保留前两位
+		tem_stDateTime.wMilliseconds = (unsigned short)tem_stDateTime.wMilliseconds/10;
+		if (m_nNameTime == 0)
+		{
+			tem_strTime.Format(_T("%02d%02d%02d%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond, tem_stDateTime.wMilliseconds);
+		} 
+		else if (m_nNameTime == 1)
+		{
+			tem_strTime.Format(_T("%02d.%02d.%02d.%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond, tem_stDateTime.wMilliseconds);
+		} 
+		else if (m_nNameTime == 2)
+		{
+			tem_strTime.Format(_T("%02d-%02d-%02d-%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond, tem_stDateTime.wMilliseconds);
+		} 
+		else if (m_nNameTime == 3)
+		{
+			tem_strTime.Format(_T("%02d_%02d_%02d_%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond, tem_stDateTime.wMilliseconds);
+		} 
+		else
+		{
+			tem_strTime.Format(_T("%02d%02d%02d%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond, tem_stDateTime.wMilliseconds);
+		}
+		tem_strTimeName  = tem_strDate;
+		tem_strTimeName += m_strNameDivide;
+		tem_strTimeName += tem_strTime;
+		tem_strNewName   = tem_strTimeName;
+
+		break;
+	case 2:
+		//自定义命名
+
+		tem_nOffset += m_nNameBegin;
+		//把当前的计数值写入ini配置文件
+		tem_strValue.Format(_T("%d"), tem_nOffset+1);
+		::WritePrivateProfileString(_T("BaseSet"), _T("NameBegin"), tem_strValue, m_strIniPath);
+
+		tem_strBegin.Format(_T("%04d"), tem_nOffset);
+		tem_strCustomName  = m_strNamePre1;
+		tem_strCustomName += m_strNamePre2;
+		tem_strCustomName += m_strNamePre3;
+		tem_strCustomName += tem_strBegin;
+		tem_strNewName     = tem_strCustomName;
+		break;
+	default:
+		tem_strCount.Format(_T("%04d"), count);
+		tem_strOrderName += tem_strCount;
+		tem_strNewName    = tem_strOrderName;
+		break;
+	}
+
+	return tem_strNewName;
+}
+
+
+void CSmartFilmUI::Self_CaptureImg(CString imgname)
+{
+	BOOL       tem_BFirst       = TRUE;
+	CString    tem_strImgName   = imgname;
+	CString    tem_strThumbPath = m_strThumbDoc;
+	CString    tem_strFilePath  = m_strSaveDoc;
+	CString    tem_strPdfImg    = m_strThumbDoc;      //用于PDF合并拍照
+	CString    tem_strDcmImg    = m_strThumbDoc;      //用于dcm单拍，以及合并拍照
+
+	CString    tem_strInterImg  = m_strThumbDoc;      //插值原图保存路径
+
+	tem_strThumbPath += _T("\\~");
+	tem_strThumbPath += imgname;
+	tem_strThumbPath += _T(".jpg");
+
+	tem_strFilePath  += imgname;
+	tem_strFilePath  += m_strFileFormat;
+
+	tem_strPdfImg += _T("\\~~");
+	tem_strPdfImg += imgname;
+	tem_strPdfImg += _T(".jpg");
+
+	tem_strDcmImg += _T("\\~~");
+	tem_strDcmImg += imgname;
+	tem_strDcmImg += _T(".jpg");
+
+	tem_strInterImg += _T("\\~~~");
+	tem_strInterImg += imgname;
+	tem_strInterImg += _T(".jpg");
+
+
+	if (m_nLastMergeMode == 1)
+	{
+		if (m_nLastImgType>=0 && m_nLastImgType<4)
+		{
+			for (int i=0; i<2; i++)
+			{
+				if (m_nLastRes==m_nInterpolateReso)
+				{
+					//将原图保存至缓存目录
+					m_conOCX.CaptureCombineEx(tem_strInterImg, 1);
+
+					//图像插值
+					Self_InterPolateImage(tem_strInterImg, tem_strFilePath, 0);
+					::DeleteFile(tem_strInterImg);
+				} 
+				else
+				{
+					m_conOCX.CaptureCombineEx(tem_strFilePath, 1);
+				}
+				
+				
+				if (m_nWaterMark == 1)
+				{
+					Self_AddWaterMark(tem_strFilePath);
+				}
+				if (tem_BFirst)
+				{
+					tem_BFirst = FALSE;
+				}
+			}
+			Self_CreateThumb(tem_strFilePath, tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+		} 
+		else if (m_nLastImgType == 4)
+		{
+			for (int i=0; i<2; i++)
+			{
+				if (m_nLastRes==m_nInterpolateReso)
+				{
+					//将原图保存至缓存目录
+					m_conOCX.CaptureCombineEx(tem_strInterImg, 1);
+					
+					//图像插值
+					Self_InterPolateImage(tem_strInterImg, tem_strPdfImg, 0);
+					::DeleteFile(tem_strInterImg);
+				} 
+				else
+				{
+					m_conOCX.CaptureCombineEx(tem_strPdfImg, 1);
+				}
+				
+				if (m_nWaterMark == 1)
+				{
+					Self_AddWaterMark(tem_strPdfImg);
+				}
+				if (tem_BFirst)
+				{
+					tem_BFirst = FALSE;
+				}
+			}
+			Self_CreateThumb(tem_strPdfImg, tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+			Self_GetPDFFromImg(tem_strPdfImg, tem_strFilePath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			DeleteFile(tem_strPdfImg);			
+		}
+		else if (m_nLastImgType == 5)
+		{
+			for (int i=0; i<2; i++)
+			{
+				if (m_nLastRes==m_nInterpolateReso)
+				{
+					//将原图保存至缓存目录
+					m_conOCX.CaptureCombineEx(tem_strInterImg, 1);
+
+					//图像插值
+					Self_InterPolateImage(tem_strInterImg, tem_strDcmImg, 0);
+					::DeleteFile(tem_strInterImg);
+				} 
+				else
+				{
+					m_conOCX.CaptureCombineEx(tem_strDcmImg, 1);
+				}
+				
+				
+				if (m_nWaterMark == 1)
+				{
+					Self_AddWaterMark(tem_strDcmImg);
+				}
+				if (tem_BFirst)
+				{
+					tem_BFirst = FALSE;
+				}
+			}
+			Self_CreateThumb(tem_strDcmImg , tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+			//生成dcm图像
+			char*  tem_cName  = NULL;
+			char*  tem_cId    = NULL;
+			char*  tem_cBirth = NULL;
+			char*  tem_cSex   = NULL;
+			char*  tem_cDName = NULL;
+			char*  tem_cDate  = NULL;
+			char*  tem_cTime  = NULL;
+
+			IMAGEAndDCM*   tem_dcm = new IMAGEAndDCM;
+			tem_dcm->Set(tem_cName, tem_cId, tem_cBirth, tem_cSex, tem_cDName, tem_cDate, tem_cTime);
+
+			USES_CONVERSION;  
+			char*   tem_cSrc = T2A(tem_strDcmImg);
+			char*   tem_cDst = T2A(tem_strFilePath);
+			tem_dcm->SaveIMAGEtoDCM(tem_cSrc, tem_cDst);
+			m_vcFilePath.push_back(tem_strFilePath);
+			DeleteFile(tem_strDcmImg);
+		}
+			
+	}
+	else if (m_nLastMergeMode==2)
+	{
+		if (m_nLastImgType>=0 && m_nLastImgType<4)
+		{
+			for (int i=0; i<2; i++)
+			{
+				if (m_nLastRes==m_nInterpolateReso)
+				{
+					//将原图保存至缓存目录
+					m_conOCX.CaptureCombineEx(tem_strInterImg, 0);
+
+					//图像插值
+					Self_InterPolateImage(tem_strInterImg, tem_strFilePath, 0);
+					::DeleteFile(tem_strInterImg);
+				} 
+				else
+				{
+					m_conOCX.CaptureCombineEx(tem_strFilePath, 0);
+				}
+				
+				if (m_nWaterMark == 1)
+				{
+					Self_AddWaterMark(tem_strFilePath);
+				}
+				if (tem_BFirst)
+				{
+					tem_BFirst = FALSE;
+				}
+			}
+			Self_CreateThumb(tem_strFilePath, tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+		} 
+		else if (m_nLastImgType == 4)
+		{
+			for (int i=0; i<2; i++)
+			{
+				if (m_nLastRes==m_nInterpolateReso)
+				{
+					//将原图保存至缓存目录
+					m_conOCX.CaptureCombineEx(tem_strInterImg, 0);
+
+					//图像插值
+					Self_InterPolateImage(tem_strInterImg, tem_strPdfImg, 0);
+					::DeleteFile(tem_strInterImg);
+				} 
+				else
+				{
+					m_conOCX.CaptureCombineEx(tem_strPdfImg, 0);
+				}
+				
+				if (m_nWaterMark == 1)
+				{
+					Self_AddWaterMark(tem_strPdfImg);
+				}
+				if (tem_BFirst)
+				{
+					tem_BFirst = FALSE;
+				}
+			}
+			Self_CreateThumb(tem_strPdfImg, tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+			Self_GetPDFFromImg(tem_strPdfImg, tem_strFilePath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			DeleteFile(tem_strPdfImg);			
+		}
+		else if (m_nLastImgType == 5)
+		{
+			for (int i=0; i<2; i++)
+			{
+				if (m_nLastRes==m_nInterpolateReso)
+				{
+					//将原图保存至缓存目录
+					m_conOCX.CaptureCombineEx(tem_strInterImg, 0);
+
+					//图像插值
+					Self_InterPolateImage(tem_strInterImg, tem_strDcmImg, 0);
+					::DeleteFile(tem_strInterImg);
+				} 
+				else
+				{
+					m_conOCX.CaptureCombineEx(tem_strDcmImg, 0);
+				}
+				
+				if (m_nWaterMark == 1)
+				{
+					Self_AddWaterMark(tem_strDcmImg);
+				}
+				if (tem_BFirst)
+				{
+					tem_BFirst = FALSE;
+				}
+			}
+			Self_CreateThumb(tem_strDcmImg , tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+			//生成dcm图像
+			char*  tem_cName  = NULL;
+			char*  tem_cId    = NULL;
+			char*  tem_cBirth = NULL;
+			char*  tem_cSex   = NULL;
+			char*  tem_cDName = NULL;
+			char*  tem_cDate  = NULL;
+			char*  tem_cTime  = NULL;
+
+			IMAGEAndDCM*   tem_dcm = new IMAGEAndDCM;
+			tem_dcm->Set(tem_cName, tem_cId, tem_cBirth, tem_cSex, tem_cDName, tem_cDate, tem_cTime);
+
+			USES_CONVERSION;  
+			char*   tem_cSrc = T2A(tem_strDcmImg);
+			char*   tem_cDst = T2A(tem_strFilePath);
+			tem_dcm->SaveIMAGEtoDCM(tem_cSrc, tem_cDst);
+			m_vcFilePath.push_back(tem_strFilePath);
+			DeleteFile(tem_strDcmImg);
+		}
+	}
+	else
+	{
+		if (m_nLastImgType>=0 && m_nLastImgType<4)
+		{
+			//普通拍照	
+			if (m_nLastRes==m_nInterpolateReso)
+			{
+				//将原图保存至缓存目录
+				m_conOCX.CaptureImage(tem_strInterImg);
+
+				//图像插值
+				Self_InterPolateImage(tem_strInterImg, tem_strFilePath, 0);
+				::DeleteFile(tem_strInterImg);
+			} 
+			else
+			{
+				m_conOCX.CaptureImage(tem_strFilePath);
+			}
+			
+			if (m_nWaterMark == 1)
+			{
+				Self_AddWaterMark(tem_strFilePath);
+			}
+			Self_CreateThumb(tem_strFilePath, tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+		}
+		else if (m_nLastImgType == 4)
+		{
+			//pdf拍照
+			/*流程一：OCX自带pdf拍照，但无法添加自定义水印*/
+			/*
+			m_conOCX.CapturePDF(tem_strFilePath);
+			Self_GetImgFromPDF(tem_strFilePath, tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+			*/
+
+			/*流程二：拍摄普通图像再转换为pdf文件*/
+			//拍摄图像保存至缓存目录
+			if (m_nLastRes==m_nInterpolateReso)
+			{
+				//将原图保存至缓存目录
+				m_conOCX.CaptureImage(tem_strInterImg);
+
+				//图像插值
+				Self_InterPolateImage(tem_strInterImg, tem_strDcmImg, 0);
+				::DeleteFile(tem_strInterImg);
+			} 
+			else
+			{
+				m_conOCX.CaptureImage(tem_strDcmImg);	
+			}
+
+			if (m_nWaterMark == 1)
+			{
+				Self_AddWaterMark(tem_strDcmImg);
+			}
+			//获取缩略图
+			Self_CreateThumb(tem_strDcmImg , tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+
+			//获取pdf文件
+			Self_GetPDFFromImg(tem_strDcmImg, tem_strFilePath);
+			m_vcFilePath.push_back(tem_strFilePath);
+			DeleteFile(tem_strDcmImg);
+		}
+		else if (m_nLastImgType == 5)
+		{
+			//dcm拍照
+			if (m_nLastRes==m_nInterpolateReso)
+			{
+				//将原图保存至缓存目录
+				m_conOCX.CaptureImage(tem_strInterImg);
+				//图像插值
+				Self_InterPolateImage(tem_strInterImg, tem_strDcmImg, 0);
+				::DeleteFile(tem_strInterImg);
+			} 
+			else
+			{
+				m_conOCX.CaptureImage(tem_strDcmImg);	
+			}
+			
+			if (m_nWaterMark == 1)
+			{
+				Self_AddWaterMark(tem_strDcmImg);
+			}
+			Self_CreateThumb(tem_strDcmImg , tem_strThumbPath);
+			m_vcImgName.push_back(tem_strImgName);
+			m_vcThumbPath.push_back(tem_strThumbPath);
+			ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+			//生成dcm图像
+			char*  tem_cName  = NULL;
+			char*  tem_cId    = NULL;
+			char*  tem_cBirth = NULL;
+			char*  tem_cSex   = NULL;
+			char*  tem_cDName = NULL;
+			char*  tem_cDate  = NULL;
+			char*  tem_cTime  = NULL;
+
+			IMAGEAndDCM*   tem_dcm = new IMAGEAndDCM;
+			tem_dcm->Set(tem_cName, tem_cId, tem_cBirth, tem_cSex, tem_cDName, tem_cDate, tem_cTime);
+
+			USES_CONVERSION;  
+			char*   tem_cSrc = T2A(tem_strDcmImg);
+			char*   tem_cDst = T2A(tem_strFilePath);
+			tem_dcm->SaveIMAGEtoDCM(tem_cSrc, tem_cDst);
+			m_vcFilePath.push_back(tem_strFilePath);
+			DeleteFile(tem_strDcmImg);
+		}
+	}
+	Self_ShowImgInfo(tem_strFilePath);
+	m_nImageCount++;
+	//如果拍摄模式为<透射稿>则校准灯箱
+	if (!m_BDOC)
+	{
+		int tem_nSave = m_nLastRelay;
+		Self_SetRelayZero();
+		m_nLastRelay = tem_nSave;
+		AdjustRelay(m_nLastRelay, 0);
+	}
+}
+
+CString CSmartFilmUI::Self_InterPolateImage(CString srcImage, CString dstImage, int index)
+{
+	int       tem_nInterpolateIndex = index;
+	int       tem_nGoalResoW        = 0;          //目标分辨率
+	int       tem_nGoalResoH        = 0;
+	float     tem_fRateW            = 0;          //转换率宽
+	float     tem_fRateH            = 0;
+
+	long*     tem_lWidth;
+	tem_lWidth  = new long;
+	long*     tem_lHeight;  
+	tem_lHeight = new long;
+	float     tem_fWidth;
+	float     tem_fHeight;
+
+	CString   tem_strSrcImage       = srcImage;     //原图路径
+	CString   tem_strDstImage       = dstImage;     //目标图路径
+
+	CxImage   tem_cxSrcImage;
+	tem_cxSrcImage.Load(tem_strSrcImage);
+	m_conOCX.GetCurResolution(tem_lWidth, tem_lHeight);
+	tem_fWidth  = *tem_lWidth;
+	tem_fHeight = *tem_lHeight;
+
+
+	tem_fRateW = 4480/(4032*1.0);
+	tem_fRateH = 3360/(3024*1.0);
+
+
+	tem_nGoalResoW = (int)(tem_cxSrcImage.GetWidth()*tem_fRateW );
+	tem_nGoalResoH = (int)(tem_cxSrcImage.GetHeight()*tem_fRateH);
+
+	tem_cxSrcImage.Resample(tem_nGoalResoW, tem_nGoalResoH);
+
+	//判断图像格式
+	int      tem_nFormat   = -1;
+	CString  tem_strFormat = _T("");
+	tem_strFormat = srcImage;
+	tem_nFormat = tem_strFormat.ReverseFind('.');
+	tem_strFormat = tem_strFormat.Mid(tem_nFormat+1);
+	tem_strFormat.MakeLower();
+	if (tem_strFormat == _T("bmp"))
+	{
+		tem_cxSrcImage.Save(tem_strDstImage, CXIMAGE_FORMAT_BMP);
+	}
+	else if (tem_strFormat == _T("jpg"))
+	{
+		tem_cxSrcImage.SetJpegQuality(100);
+		tem_cxSrcImage.Save(tem_strDstImage, CXIMAGE_FORMAT_JPG);
+	}
+	else if (tem_strFormat == _T("tif"))
+	{
+		tem_cxSrcImage.Save(tem_strDstImage, CXIMAGE_FORMAT_TIF);
+	}
+	else if (tem_strFormat == _T("png"))
+	{
+		tem_cxSrcImage.SetJpegQuality(50);
+		tem_cxSrcImage.Save(tem_strDstImage, CXIMAGE_FORMAT_PNG);
+	}
+
+	tem_cxSrcImage.Destroy();
+
+	return tem_strDstImage;
+}
+
+
+void CSmartFilmUI::Self_AddWaterMark(CString imgpath)
+{
+	//1、获取水印格式信息
+	int       tem_nSite;
+	int       tem_nOffSetX;   //水印坐标
+	int       tem_nOffSetY; 
+	int       tem_nSize   = Self_GetFontSize(m_nWaterSize);
+	int       tem_nStrWidth;
+	CString   tem_strFont = Self_GetFontName(m_nWaterFont);
+	CString   tem_strInfo = _T("");
+
+	CxImage*  tem_pImage;
+	tem_pImage = new CxImage;
+	tem_pImage->Load(imgpath, CMAX_IMAGE_FORMATS);
+	tem_pImage->IncreaseBpp(24);
+
+	CxImage::CXTEXTINFO WMTxtInfo;                  // 授权文字水印
+	tem_pImage->InitTextInfo( &WMTxtInfo );
+	_stprintf(WMTxtInfo.lfont.lfFaceName, tem_strFont);
+	WMTxtInfo.lfont.lfCharSet = GB2312_CHARSET;
+	WMTxtInfo.lfont.lfHeight = tem_nSize;
+//	WMTxtInfo.lfont.lfWeight = 20;
+	WMTxtInfo.lfont.lfItalic = 0;
+	WMTxtInfo.lfont.lfUnderline = 0;
+
+
+	int      tem_nFind;
+	CString  tem_strRead;
+	CString  tem_strSinColor[3];
+	CString  tem_strWaterColor = m_strWaterColor;
+	tem_nFind = tem_strWaterColor.Find('|');
+	int i=0;
+	while (tem_nFind != -1)
+	{
+		tem_strRead = tem_strWaterColor.Mid(0, tem_nFind);
+		tem_strSinColor[i]= tem_strRead;
+		tem_strWaterColor = tem_strWaterColor.Mid(tem_nFind+1);
+		tem_nFind  = tem_strWaterColor.Find('|');
+		i++;
+	}
+	m_nRedValue   = _ttoi(tem_strSinColor[0]);
+	m_nGreenValue = _ttoi(tem_strSinColor[1]);
+	m_nBlueValue  = _ttoi(tem_strSinColor[2]);
+	WMTxtInfo.fcolor = RGB(m_nRedValue, m_nGreenValue, m_nBlueValue);
+	WMTxtInfo.opaque = 0;                        //背景
+	WMTxtInfo.b_opacity = (float)(1);            //透明度
+	WMTxtInfo.b_round = (BYTE)10;
+	
+	
+	if (m_nWaterMode == 1)
+	{
+		//时间水印
+		tem_strInfo = Self_GetTimeInfo();
+	} 
+	else
+	{
+		//文字水印
+		tem_strInfo = m_strWaterInfo;
+	}
+	
+	//获取水印文本的像素尺寸
+	tem_nStrWidth = Self_GetFontWidth(WMTxtInfo.lfont, tem_strInfo);
+
+	if (tem_strFont == _T("Arial"))
+	{
+		//Arial
+		tem_nStrWidth = (tem_nStrWidth/2 + tem_nStrWidth/12);   //15时中文刚好，但英文溢出
+	}
+	else if (tem_strFont == _T("Calibri"))
+	{
+		//Calibri
+		tem_nStrWidth = (tem_nStrWidth/2 + tem_nStrWidth/4);    //10时中文刚好，但英文会出
+	}
+	else if (tem_strFont == _T("Times New Roman"))
+	{
+		//Times
+		tem_nStrWidth = (tem_nStrWidth/2 + tem_nStrWidth/7);
+	}
+	else if (tem_strFont == _T("隶书"))
+	{
+		//隶书
+		tem_nStrWidth = (tem_nStrWidth/2 + tem_nStrWidth/11);
+	}
+	else 
+	{
+		//宋体、楷体、仿宋、黑体、雅黑、新宋
+		tem_nStrWidth = tem_nStrWidth/2;
+	}	
+
+	if (m_nWaterSite == 0)
+	{
+		//左上角
+		tem_nOffSetX = 0;
+		tem_nOffSetY = tem_nSize;
+	}
+	else if (m_nWaterSite == 1)
+	{
+		//左下角
+		tem_nOffSetX = 0;
+		tem_nOffSetY = tem_pImage->GetHeight();
+	}
+	else if (m_nWaterSite == 2)
+	{
+		//右上角
+		tem_nOffSetX = tem_pImage->GetWidth()-tem_nStrWidth;
+		tem_nOffSetY = tem_nSize;
+	}
+	else if (m_nWaterSite == 3)
+	{
+		//右下角
+		tem_nOffSetX = tem_pImage->GetWidth()-tem_nStrWidth;
+		tem_nOffSetY = tem_pImage->GetHeight();
+	}
+	else
+	{
+		//居中
+		tem_nOffSetX = tem_pImage->GetWidth()/2;
+		tem_nOffSetY = tem_pImage->GetHeight()/2;
+	}
+	
+	_stprintf(WMTxtInfo.text, tem_strInfo);
+	tem_pImage->DrawStringEx(0, tem_nOffSetX, tem_nOffSetY, &WMTxtInfo);
+
+	//根据后缀判断文件类型
+	CString     tem_strFormat;
+	tem_strFormat = PathFindExtension(imgpath);
+	tem_strFormat.MakeLower();
+	if (tem_strFormat==_T(".bmp"))
+	{
+		tem_pImage->Save(imgpath, CXIMAGE_FORMAT_BMP);
+	}
+	else if (tem_strFormat==_T(".jpg"))
+	{
+		tem_pImage->Save(imgpath, CXIMAGE_FORMAT_JPG);
+	}
+	else if (tem_strFormat==_T(".png"))
+	{
+		tem_pImage->Save(imgpath, CXIMAGE_FORMAT_PNG);
+	}
+	else if (tem_strFormat==_T(".tif"))
+	{
+		tem_pImage->Save(imgpath, CXIMAGE_FORMAT_TIF);
+	}
+	delete tem_pImage;	
+}
+
+
+CString CSmartFilmUI::Self_CreateThumb(CString srcimg, CString dstimg)
+{
+	CString   tem_strSrcImg = srcimg;
+	CString   tem_strDstImg = dstimg;
+
+	int       tem_nImageType=GetTypeFromFileName(tem_strSrcImg);
+	if(tem_nImageType==CXIMAGE_FORMAT_UNKNOWN)
+	{
+		return tem_strSrcImg;
+	}
+	CxImage*  tem_pImage;
+	tem_pImage = new CxImage;
+	tem_pImage->Load(tem_strSrcImg, tem_nImageType);
+	if(tem_pImage->IsValid()==false)
+	{
+		return tem_strSrcImg;
+	}
+	if (tem_pImage->GetBpp()==1)
+	{
+		tem_pImage->IncreaseBpp(24);
+	}
+	int   cx = 160;
+	int   cy = (int)160*tem_pImage->GetHeight()/tem_pImage->GetWidth();
+	tem_pImage->Resample(cx, cy, 1, NULL);
+	tem_pImage->Save(tem_strDstImg, CXIMAGE_FORMAT_JPG);
+
+	delete tem_pImage;
+	return tem_strDstImg;
+}
+
+
+int CSmartFilmUI::GetTypeFromFileName(LPCTSTR pstr)
+{
+	CString fileName(pstr);
+	CString ext3=fileName.Right(3);
+	CString ext4=fileName.Right(4);
+#if CXIMAGE_SUPPORT_BMP
+	if(ext3.CompareNoCase(_T("bmp"))==0)
+		return CXIMAGE_FORMAT_BMP;
+#endif
+
+#if CXIMAGE_SUPPORT_GIF
+	if(ext3.CompareNoCase(_T("gif"))==0)
+		return CXIMAGE_FORMAT_GIF;
+#endif
+
+#if CXIMAGE_SUPPORT_JPG
+	if(ext3.CompareNoCase(_T("jpg"))==0 || ext4.CompareNoCase(_T("jpeg"))==0)
+		return CXIMAGE_FORMAT_JPG;
+#endif
+
+#if CXIMAGE_SUPPORT_PNG
+	if(ext3.CompareNoCase(_T("png"))==0)
+		return CXIMAGE_FORMAT_PNG;
+#endif
+
+#if CXIMAGE_SUPPORT_MNG
+	if(ext3.CompareNoCase(_T("mng"))==0 || ext3.CompareNoCase(_T("jng"))==0 ||ext3.CompareNoCase(_T("png"))==0)
+		return CXIMAGE_FORMAT_MNG;
+#endif
+
+#if CXIMAGE_SUPPORT_ICO
+	if(ext3.CompareNoCase(_T("ico"))==0)
+		return CXIMAGE_FORMAT_ICO;
+#endif
+
+#if CXIMAGE_SUPPORT_TIF
+	if(ext3.CompareNoCase(_T("tif"))==0 || ext4.CompareNoCase(_T("tiff"))==0)
+		return CXIMAGE_FORMAT_TIF;
+#endif
+
+#if CXIMAGE_SUPPORT_TGA
+	if(ext3.CompareNoCase(_T("tga"))==0)
+		return CXIMAGE_FORMAT_TGA;
+#endif
+
+#if CXIMAGE_SUPPORT_PCX
+	if(ext3.CompareNoCase(_T("pcx"))==0)
+		return CXIMAGE_FORMAT_PCX;
+#endif
+
+#if CXIMAGE_SUPPORT_WBMP
+	if(ext4.CompareNoCase(_T("wbmp"))==0)
+		return CXIMAGE_FORMAT_WBMP;
+#endif
+
+#if CXIMAGE_SUPPORT_WMF
+	if(ext3.CompareNoCase(_T("wmf"))==0 || ext3.CompareNoCase(_T("emf"))==0)
+		return CXIMAGE_FORMAT_WMF;
+#endif
+
+#if CXIMAGE_SUPPORT_J2K
+	if(ext3.CompareNoCase(_T("j2k"))==0 || ext3.CompareNoCase(_T("jp2"))==0)
+		return CXIMAGE_FORMAT_J2K;
+#endif
+
+#if CXIMAGE_SUPPORT_JBG
+	if(ext3.CompareNoCase(_T("jbg"))==0)
+		return CXIMAGE_FORMAT_JBG;
+#endif
+
+#if CXIMAGE_SUPPORT_JP2
+	if(ext3.CompareNoCase(_T("j2k"))==0 || ext3.CompareNoCase(_T("jp2"))==0)
+		return CXIMAGE_FORMAT_JP2;
+#endif
+
+#if CXIMAGE_SUPPORT_JPC
+	if(ext3.CompareNoCase(_T("j2c"))==0 || ext3.CompareNoCase(_T("jpc"))==0)
+		return CXIMAGE_FORMAT_JPC;
+#endif
+
+#if CXIMAGE_SUPPORT_PGX
+	if(ext3.CompareNoCase(_T("pgx"))==0)
+		return CXIMAGE_FORMAT_PGX;
+#endif
+
+#if CXIMAGE_SUPPORT_PNM
+	if(ext3.CompareNoCase(_T("pnm"))==0 || ext3.CompareNoCase(_T("pgm"))==0 || ext3.CompareNoCase(_T("ppm"))==0)
+		return CXIMAGE_FORMAT_PNM;
+#endif
+
+#if CXIMAGE_SUPPORT_RAS
+	if(ext3.CompareNoCase(_T("ras"))==0)
+		return CXIMAGE_FORMAT_RAS;
+#endif
+
+	return CXIMAGE_FORMAT_UNKNOWN;
+}
+
+
+int CSmartFilmUI::Self_GetFontSize(int index)
+{
+	int tem_nFontSize = 0;
+	switch (index)
+	{
+	case 0:
+		tem_nFontSize = 10;
+		break;
+	case 1:
+		tem_nFontSize = 20;
+		break;
+	case 2:
+		tem_nFontSize = 30;
+		break;
+	case 3:
+		tem_nFontSize = 40;
+		break;
+	case 4:
+		tem_nFontSize = 50;
+		break;
+	case 5:
+		tem_nFontSize = 70;
+		break;
+	case 6:
+		tem_nFontSize = 90;
+		break;
+	case 7:
+		tem_nFontSize = 120;
+		break;
+	case 8:
+		tem_nFontSize = 150;
+		break;
+	case 9:
+		tem_nFontSize = 200;
+		break;
+	default:
+		tem_nFontSize = 20;
+		break;
+	}
+	return tem_nFontSize;
+}
+
+
+CString CSmartFilmUI::Self_GetFontName(int index)
+{
+	CString   tem_strFontName = _T("");
+	switch(index)
+	{
+	case 0:
+		tem_strFontName = _T("Arial");
+		break;
+	case 1:
+		tem_strFontName = _T("Calibri");
+		break;
+	case 2:
+		tem_strFontName = _T("Times New Roman");
+		break;
+	case 3:
+		tem_strFontName = _T("宋体");
+		break;
+	case 4:
+		tem_strFontName = _T("楷体");
+		break;
+	case 5:
+		tem_strFontName = _T("仿宋");
+		break;
+	case 6:
+		tem_strFontName = _T("黑体");
+		break;
+	case 7:
+		tem_strFontName = _T("隶书");
+		break;
+	case 8:
+		tem_strFontName = _T("微软雅黑");
+		break;
+	case 9:
+		tem_strFontName = _T("新宋体");
+		break;
+	default:
+		tem_strFontName = _T("宋体");
+		break;
+	}
+	return tem_strFontName;
+}
+
+
+BOOL CSmartFilmUI::ThumbaiList(int thumbwidth, int thumbheight)
+{
+	int          m_nImageIndex= 0;
+	DWORD  dwStyle;
+	//CImageList初始化
+	m_imagelist.Create(thumbwidth,thumbheight,ILC_COLOR24,0,1);
+
+	//ListCtrl初始化
+	dwStyle = m_conListCtrl.GetExtendedStyle();
+	dwStyle=dwStyle|LVS_SHOWSELALWAYS|LVS_ALIGNTOP|LVS_ICON|LVS_AUTOARRANGE;
+	m_conListCtrl.SetExtendedStyle(dwStyle);
+	m_conListCtrl.SetImageList(&m_imagelist,LVSIL_NORMAL);
+	for(int i=0;i<m_imagelist.GetImageCount();i++)
+	{
+		m_imagelist.Remove(i);
+	}
+	m_conListCtrl.DeleteAllItems();
+	m_imagelist.SetImageCount(m_vcImgName.size()); 
+
+	wchar_t path[MAX_PATH]; 
+	std::vector<CString>::iterator iter1;
+	std::vector<CString>::iterator iter2;
+	m_conListCtrl.SetRedraw(false);
+	m_nImageIndex = 0;
+	m_conListCtrl.SetTextBkColor(RGB(72,77,91));
+	m_conListCtrl.SetTextColor(RGB(255, 255, 255));
+	for(iter1=m_vcImgName.begin();iter1!=m_vcImgName.end();iter1++,m_nImageIndex++)
+	{
+		m_conListCtrl.InsertItem(m_nImageIndex,*iter1,m_nImageIndex);
+	}
+	m_conListCtrl.SetRedraw(true);
+	m_conListCtrl.Invalidate();
+
+	HBRUSH hBrushBorder    =::CreateSolidBrush(RGB(220,220,220));
+	HBRUSH hBrushBkground  =::CreateSolidBrush(RGB(255,255,255));
+
+
+
+	RECT rcBorder;
+	rcBorder.left=rcBorder.top  =0;
+	rcBorder.right              =thumbwidth;
+	rcBorder.bottom             =thumbheight;
+
+	float fRatio=(float)thumbheight/thumbwidth; 
+
+	int XDest,YDest,nDestWidth,nDestHeight;
+	m_nImageIndex=0;
+
+	for(iter2=m_vcThumbPath.begin();iter2!=m_vcThumbPath.end();iter2++,m_nImageIndex++)
+	{
+		_stprintf(path,*iter2);
+		int nImageType=GetTypeFromFileName(path);
+		if(nImageType==CXIMAGE_FORMAT_UNKNOWN)
+			continue;
+		CxImage image;
+		image.Load(path, nImageType);
+		if(image.IsValid()==false)
+			continue;
+		float fImgRatio=(float)image.GetHeight()/image.GetWidth();  
+		if(fImgRatio>fRatio)
+		{
+			nDestWidth=(int)thumbheight/fImgRatio;   
+			XDest=(thumbwidth-nDestWidth)/2;
+			YDest=0;
+			nDestHeight=thumbheight;
+		}
+		else
+		{
+			XDest=0;
+			nDestWidth=thumbwidth;
+			nDestHeight=(int)thumbwidth*fImgRatio;  
+			YDest=(thumbheight-nDestHeight)/2;
+		}
+
+		CClientDC cdc(this);
+		HDC hDC=::CreateCompatibleDC(cdc.m_hDC);
+		HBITMAP bm=CreateCompatibleBitmap(cdc.m_hDC,thumbwidth,thumbheight);
+		HBITMAP pOldBitmapImage=(HBITMAP)SelectObject(hDC,bm);
+
+		::FillRect(hDC,&rcBorder,hBrushBkground);
+		image.Stretch(hDC,XDest,YDest,nDestWidth,nDestHeight);
+		::FrameRect(hDC,&rcBorder,hBrushBorder);
+		SelectObject(hDC,pOldBitmapImage);
+		CBitmap bitmap;
+		bitmap.Attach(bm);
+		m_imagelist.Replace(m_nImageIndex,&bitmap,NULL);
+		m_conListCtrl.RedrawItems(m_nImageIndex,m_nImageIndex);
+
+		DeleteDC(hDC);
+		DeleteObject(bm);
+	}
+	DeleteObject(hBrushBorder);
+	DeleteObject(hBrushBkground);
+	int tem_nCount = m_conListCtrl.GetItemCount();
+	if (tem_nCount>0)
+	{
+
+		m_conListCtrl.EnsureVisible(tem_nCount-1, FALSE);
+	}
+	m_conListCtrl.Invalidate();
+
+	return TRUE;
+}
+
+
+CString CSmartFilmUI::Self_GetTimeInfo(void)
+{
+	SYSTEMTIME   tem_stDateTime;
+	CString      tem_strDate = _T("");
+	CString      tem_strTime = _T("");
+	CString      tem_strTimeName  = _T("");       //时间命名
+
+	GetLocalTime(&tem_stDateTime);
+	tem_strDate.Format(_T("%d-%02d-%02d "), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+	tem_strTime.Format(_T("%02d:%02d:%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond);
+
+	tem_strTimeName  = tem_strDate;
+	tem_strTimeName += tem_strTime;
+
+	return tem_strTimeName;
+	return CString();
+}
+
+
+int CSmartFilmUI::Self_GetFontWidth(LOGFONT text, CString textinfo)
+{
+	CFont     tem_fontInput;
+	LOGFONT   tem_fontInfo;
+
+	memset(&tem_fontInfo, 0, sizeof(LOGFONT));
+	tem_fontInfo.lfHeight = text.lfHeight;
+	_stprintf(tem_fontInfo.lfFaceName, text.lfFaceName);
+	VERIFY(tem_fontInput.CreateFontIndirect(&tem_fontInfo));
+
+	CClientDC  tem_dc(this);
+	CFont* def_font = tem_dc.SelectObject(&tem_fontInput);
+	CSize  sztext = tem_dc.GetTextExtent(textinfo);
+	int    tem_nStrLength = sztext.cx;
+
+	tem_dc.SelectObject(def_font);
+	tem_fontInput.DeleteObject();
+
+	return tem_nStrLength;
+}
+
+
+CString CSmartFilmUI::Self_GetPDFFromImg(CString imgpath, CString pdfpath)
+{
+	CString   tem_strInputPath  = imgpath;     //导入图像路径
+	CString   tem_strOutputPath = pdfpath;     //导出PDF路径
+
+
+	//导出PDF--------
+	int       doc, page, image, code, pagenum=2;
+	wstring    outfile;
+	outfile = tem_strOutputPath.GetBuffer(0);
+	tem_strOutputPath.ReleaseBuffer();
+	PDFlib*    pPdf;
+	pPdf = new PDFlib;
+	try
+	{
+		//		pPdf->set_parameter("License", "w700602-009100-731090-Y6WPH2-5SE4A2");
+		pPdf->set_parameter(_T("nodemostamp"), _T("false"));
+		pPdf->set_parameter(_T("errorpolicy"), _T("return"));
+		//		pPdf->set_parameter(_T("hypertextencoding"), _T("host"));
+
+		code = pPdf->begin_document(outfile, _T(""));
+		if (code == -1)
+		{
+			return tem_strInputPath;
+		}
+		//设置PDF属性信息******************************************************
+		pPdf->set_info(_T("Creator"), _T("SmartScan"));   
+		pPdf->set_info(_T("Author"), _T("UDS"));   
+		pPdf->set_info(_T("Title"), _T("UDSPDF")); 
+		pPdf->set_info(_T("Subject"), _T("扫描文档"));
+
+		//图片导入***********************************************************
+		{
+
+			wstring sFilePath(tem_strInputPath.GetBuffer());
+			image = pPdf->load_image(_T("auto"), sFilePath, _T(""));
+			pPdf->begin_page_ext(10, 10, _T(""));
+			pPdf->fit_image(image, 0, 0, _T("adjustpage dpi=0"));  //导入图像
+			pPdf->close_image(image);
+			pPdf->end_page_ext(_T(""));
+		}		
+		pPdf->end_document(_T(""));	
+	}
+	catch (PDFlib::Exception e)
+	{
+		int     num=-1;
+		wstring  str;
+		CString str2, str3;
+		str = e.get_errmsg();
+		num = e.get_errnum();
+		str2 = str.c_str();
+		str3.Format(_T("%d"), num);
+	}
+
+	return tem_strOutputPath;
+}

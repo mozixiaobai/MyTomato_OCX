@@ -46,8 +46,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
     <TargetExt>.ocx</TargetExt>
-    <IncludePath>..\Release\pub\usbrelay;$(IncludePath)</IncludePath>
-    <LibraryPath>..\Release\pub\usbrelay;$(LibraryPath)</LibraryPath>
+    <IncludePath>..\Release\pub\usbrelay;..\Release\pub\include;..\Release\pub\pdflib;$(IncludePath)</IncludePath>
+    <LibraryPath>..\Release\pub\usbrelay;..\Release\pub\lib;..\Release\pub\pdflib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -93,7 +93,7 @@
       <ModuleDefinitionFile>.\SmartFilm.def</ModuleDefinitionFile>
       <OutputFile>$(OutDir)$(ProjectName).ocx</OutputFile>
       <RegisterOutput>true</RegisterOutput>
-      <AdditionalDependencies>usb_relay_device.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>usb_relay_device.lib;cximage.lib;IMAGEAndDCM.lib;pdflib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -128,7 +128,9 @@
     <ClCompile Include="tinyxmlerror.cpp" />
     <ClCompile Include="tinyxmlparser.cpp" />
     <ClCompile Include="UDSGetImg.cpp" />
+    <ClCompile Include="UDSNameSet.cpp" />
     <ClCompile Include="UDSProImg.cpp" />
+    <ClCompile Include="UDSWaterMark.cpp" />
     <ClCompile Include="uds_videoctrl1.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -142,7 +144,9 @@
     <ClInclude Include="tinystr.h" />
     <ClInclude Include="tinyxml.h" />
     <ClInclude Include="UDSGetImg.h" />
+    <ClInclude Include="UDSNameSet.h" />
     <ClInclude Include="UDSProImg.h" />
+    <ClInclude Include="UDSWaterMark.h" />
     <ClInclude Include="uds_videoctrl1.h" />
   </ItemGroup>
   <ItemGroup>

@@ -63,6 +63,12 @@
     <ClCompile Include="UDSProImg.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="UDSWaterMark.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="UDSNameSet.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -99,6 +105,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="UDSProImg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="UDSWaterMark.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="UDSNameSet.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
