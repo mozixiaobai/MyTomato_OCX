@@ -1,5 +1,8 @@
 #pragma once
+#define WM_IMGPROCESS WM_USER+1002
 
+
+#include <vector>
 
 // CUDSProImg 对话框
 
@@ -18,4 +21,61 @@ protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 
 	DECLARE_MESSAGE_MAP()
+public:
+
+
+	int m_nBrit;
+	int m_nCtst;
+	int m_nSatr;
+	int m_nGama;
+
+
+	int m_nOperation;   
+	int m_nFontSize;
+	int m_nNote;              //标注标示位， 0-关闭，1-画框、画箭头，2-标注
+	int m_nLineWidth;       
+
+	BOOL m_BBold;
+	BOOL m_BItalic;
+
+	CString m_strFont;
+	CString m_strInfo;
+
+	CSliderCtrl m_slidCBright;
+	CSliderCtrl m_slidCContrst;
+	CSliderCtrl m_slidCGama;
+
+	COLORREF m_clrLineColor;  
+
+
+	virtual BOOL OnInitDialog();
+	
+	int m_staBrit;
+	int m_staCtst;
+	float m_staGama;
+	void Self_SetCtrl(int index);
+	CComboBox m_conLineWidth;
+	CMFCColorButton m_conColor;
+	CComboBox m_conFontSize;
+	CComboBox m_conFont;
+	afx_msg void OnBnClickedBtnBsave();
+	afx_msg void OnBnClickedBtnBbackout();
+	afx_msg void OnBnClickedBtnBrest();
+	afx_msg void OnBnClickedBtnBfitscreen();
+	afx_msg void OnBnClickedBtnBorisize();
+	afx_msg void OnBnClickedBtnBlrotate();
+	afx_msg void OnBnClickedBtnBrrotate();
+	afx_msg void OnBnClickedBtnBrotate180();
+	afx_msg void OnBnClickedBtnBlmirro();
+	afx_msg void OnBnClickedBtnBvmirro();
+	afx_msg void OnBnClickedBtnBrotateself();
+	afx_msg void OnCustomdrawSlidBbri(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnReleasedcaptureSlidBbri(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnCustomdrawSlidBcontrast(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnReleasedcaptureSlidBcontrast(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnCustomdrawSlidBgama(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnReleasedcaptureSlidBgama(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnBnClickedBtnBmarkit();
+	afx_msg void OnBnClickedBtnBarrow();
+	afx_msg void OnBnClickedBtnBtext();
 };

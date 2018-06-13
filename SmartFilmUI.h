@@ -2,6 +2,7 @@
 #define WM_SCANSET WM_USER+1001
 #define WM_IMGPROCESS WM_USER+1002
 
+
 #include "uds_videoctrl1.h"
 #include "tinyxml.h"
 #include "UDSGetImg.h"
@@ -13,8 +14,16 @@
 #include "pdflib.h"
 #include "pdflib.hpp"
 #include "Shellapi.h"
+#include "cv.h"
+#include "opencv2/photo.hpp"
+#include "opencv2/imgcodecs.hpp"
+#include "opencv2/imgproc.hpp"
+#include "opencv2/highgui.hpp"
+#include "CvvImage.h"      //ATL和cvvImage同时定义了CImage
 #include <vector>
 
+using namespace cv;
+using namespace pdflib;
 
 
 typedef struct tagPROPERTY
@@ -70,6 +79,9 @@ public:
 	CString m_strWaterColor;
 	CString m_strWaterInfo;
 	CString m_strFileFormat;
+	CString m_strTabImg;       //Tab控件切换时的显示图像
+	CString m_strFilesPath;
+	CString m_strBufferImgPath;
 
 
 	int m_lReturnCode;       //返回码
@@ -147,6 +159,7 @@ public:
 	int m_nPrcsIndex;
 	int m_nThumbWidth;    
 	int m_nThumbHeight;
+	int m_nRSlcIndex;      //右键选中索引
 
 
 	long m_lLeftSite;       //裁切框坐标
@@ -154,18 +167,53 @@ public:
 	long m_lRightSite;
 	long m_lBottomSite;
 
+
 	BOOL m_BShowTips;
 	BOOL m_BSaveFmt;
 	BOOL m_BHDR;
 	BOOL m_nHDRMerge;
 	BOOL m_nHDRLight;
 	BOOL m_BDOC;
+	BOOL m_BCtrl;
+	BOOL m_BShowPicCtrl;
+	BOOL m_BPaintLine;
+	BOOL m_BNoSaved;              //是否保存
 
-	std::vector<CString>   m_vcImgName;         //图像名    
-	std::vector<CString>   m_vcThumbPath;       //缩略图路径
-	std::vector<CString>   m_vcFilePath;       //拍摄文件路径
+
+	Mat m_cvSrcImage;
+	Mat m_cvDstImage;
+	Mat m_cvLastImg;
+	Mat m_cvNextImg;
+	Mat m_cvTipsImg;          //提示信息图像
+
+
+	CRect m_rcPicRect;          //Picture控件坐标
+	CRect m_rcImageShow;        //图像显示坐标，相对于Picture控件
+	CRect m_rcImageCrop;        //图像框选坐标，相对于Picture控件
+	CRect m_rcImageRect;        //需要显示的图像rect
+
+
+	int m_nDrawX;             //图像缩放后绘制起点
+	int m_nDrawY;
+	int m_nImageBright;       //图像亮度
+	int m_nImageContrast;     //图像对比度
+	int m_nOffsetX, m_nOffsetY;
+	int m_nShowWidth;         //初始化显示宽度
+	int m_nShowHeight;        //初始化显示高度
+
+	float      m_fCurRatio;           //当前缩放比例
+	float      m_fPI;                  //圆周率常量
+
+	
+	std::vector<CString> m_vcImgName;         //图像名    
+	std::vector<CString> m_vcThumbPath;       //缩略图路径
+	std::vector<CString> m_vcFilePath;        //拍摄文件路径
+	std::vector<CString> m_vcHistoryImg;
+
 
 	CImageList m_imagelist;
+
+	CMenu m_ListMenu;
 
 	//调焦
 	int       m_nVidoeMode;        //MJPG/YUY2
@@ -228,4 +276,21 @@ public:
 	CString Self_GetTimeInfo(void);
 	int Self_GetFontWidth(LOGFONT text, CString textinfo);
 	CString Self_GetPDFFromImg(CString imgpath, CString pdfpath);
+	afx_msg void OnDblclkListImage(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void OnRclickListImage(NMHDR *pNMHDR, LRESULT *pResult);
+	afx_msg void On32768Delte();
+	afx_msg void On32769Property();
+	void Self_ShowImgInfo(CString imgpath);
+	void Self_ShowOcxCtrl(void);
+	void Self_ShowPicCtrl(void);
+	void Self_CVShowImage(CString imgpath);
+	void Self_ResetImageRect(void);
+	void Self_ResizeImage(CWnd* pWnd, Mat srcImg);
+	void Self_ShowMatImage2(Mat img, CRect rect);
+	void Self_CVShowTipImage(CString imgpath);
+	BOOL Self_EnsureSave(void);
+	void Self_UpdateThumb(int index, CString imgpath);
+	void Self_ReplaceImage(int thumbwidth, int thumbheight, int item);
+	void Self_ClearPicCtrl(void);
+	CStatic m_conPicCtrl;
 };

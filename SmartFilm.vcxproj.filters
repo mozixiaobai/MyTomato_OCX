@@ -69,6 +69,9 @@
     <ClCompile Include="UDSNameSet.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="CvvImage.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
@@ -111,6 +114,12 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="UDSNameSet.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Release\pub\pdflib\pdflib.hpp">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CvvImage.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

@@ -38,6 +38,7 @@ void CUDSGetImg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SLID_AFOCUS, m_slidAdjFocus);
 	DDX_Control(pDX, IDC_SLID_ADELAY, m_slidComputer);
 	DDX_Text(pDX, IDC_STA_ADELAYV, m_staComputerD);
+	DDX_Control(pDX, IDC_EDIT_SHOWINFO, m_conEditInfo);
 }
 
 
@@ -67,6 +68,7 @@ BEGIN_MESSAGE_MAP(CUDSGetImg, CDialogEx)
 	ON_COMMAND(IDC_RADIO_SCAN, &CUDSGetImg::OnRadioScan)
 	ON_BN_CLICKED(IDC_BTN_LDR, &CUDSGetImg::OnBnClickedBtnLdr)
 	ON_BN_CLICKED(IDC_BTN_CAP, &CUDSGetImg::OnBnClickedBtnCap)
+	ON_BN_CLICKED(IDC_CHK_ADELAY, &CUDSGetImg::OnClickedChkAdelay)
 END_MESSAGE_MAP()
 
 
@@ -464,7 +466,7 @@ void CUDSGetImg::Self_SetSlider(CString xmlpath)
 	{
 		//反射稿关闭，透射稿必打开
 		m_BDocMode = FALSE;
-		m_nViewMode = 1;
+		m_nViewMode = 0;
 	}
 	else
 	{
@@ -890,4 +892,32 @@ void CUDSGetImg::OnBnClickedBtnCap()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	::SendMessage(g_hMainHwnd, WM_SCANSET, 16, 2);
+}
+
+
+void CUDSGetImg::Self_ShowImgInfo(CString info)
+{
+	CString tem_strInfo = info;
+	tem_strInfo += _T("\n");
+	m_conEditInfo.SetSel(-1);
+	m_conEditInfo.ReplaceSel(tem_strInfo);
+}
+
+
+void CUDSGetImg::OnClickedChkAdelay()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (BST_CHECKED == IsDlgButtonChecked(IDC_CHK_ADELAY))
+	{
+		GetDlgItem(IDC_SLID_ADELAY)->EnableWindow(FALSE);
+		::WritePrivateProfileString(_T("BaseSet"), _T("Computer"), _T("0"), m_strIniPath);
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 18, 0);
+	}
+	else
+	{
+		GetDlgItem(IDC_SLID_ADELAY)->EnableWindow(TRUE);
+		m_slidComputer.SetPos(2);
+		::WritePrivateProfileString(_T("BaseSet"), _T("Computer"), _T("2"), m_strIniPath);
+		::SendMessage(g_hMainHwnd, WM_SCANSET, 18, 2);
+	}
 }

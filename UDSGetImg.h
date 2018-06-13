@@ -90,4 +90,7 @@ public:
 	afx_msg void OnRadioScan();
 	afx_msg void OnBnClickedBtnLdr();
 	afx_msg void OnBnClickedBtnCap();
+	void Self_ShowImgInfo(CString info);
+	CEdit m_conEditInfo;
+	afx_msg void OnClickedChkAdelay();
 };
