@@ -1,4 +1,4 @@
-m_pszData
+
 // SmartFilmUI.cpp : 实现文件
 //
 
@@ -58,6 +58,11 @@ BEGIN_MESSAGE_MAP(CSmartFilmUI, CDialogEx)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST_IMAGE, &CSmartFilmUI::OnRclickListImage)
 	ON_COMMAND(ID_32768, &CSmartFilmUI::On32768Delte)
 	ON_COMMAND(ID_32769, &CSmartFilmUI::On32769Property)
+	ON_MESSAGE(WM_IMGPROCESS, &CSmartFilmUI::OnImgprocess)
+	ON_WM_LBUTTONDOWN()
+	ON_WM_LBUTTONUP()
+	ON_WM_MOUSEMOVE()
+	ON_WM_MOUSEWHEEL()
 END_MESSAGE_MAP()
 
 
@@ -117,6 +122,19 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_nPrcsIndex = -1;
 	m_nThumbWidth = 160;
 	m_nThumbHeight = 130;
+	m_nLastBrit = 0;
+	m_nLastCtst = 0;
+	m_nLastCGama = 0;
+	m_nLineMode = 1;
+	m_nAngleCount = 0;
+	m_nNoteCount = 0;
+	m_refLineColor= 255;
+	m_nArrowLen   = 35;
+	m_nArrowAngle = 30;
+	m_nLineWidth  = 5;
+
+	m_fPI = 3.1415926;
+
 
 	m_lReturnCode  = -1;
 	m_lLeftSite = 0;       //裁切框坐标
@@ -130,9 +148,17 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_BCtrl = TRUE;
 	m_BShowPicCtrl = FALSE;
 	m_BPaintLine = FALSE;
+	m_BOriSize = FALSE;
+	m_BSelectTab = FALSE;
+	m_BLButtonDown = FALSE;
+	m_BSlcRect = FALSE;
+	m_BLabel = FALSE;
+	m_BSlcRected = FALSE;
 
 
 	g_hMainHwnd = this->m_hWnd;
+
+	pWnd = GetDlgItem(IDC_STA_PIC);
 
 	/*2、目录已经文件路径*/
 	//配置文件目录
@@ -381,7 +407,15 @@ BOOL CSmartFilmUI::OnInitDialog()
 BOOL CSmartFilmUI::PreTranslateMessage(MSG* pMsg)
 {
 	// TODO: 在此添加专用代码和/或调用基类
-	
+	//鼠标在哪，将焦点给谁，很方便——————————————————————————
+	//对于SliderCtrl——Release消息，则需要考虑屏蔽鼠标滚轮消息
+/*	if (pMsg->message == WM_MOUSEHWHEEL || pMsg->message == WM_MOUSEWHEEL)
+	{
+		POINT   tem_CurPos;
+		GetCursorPos(&tem_CurPos);
+		pMsg->hwnd = ::WindowFromPoint(tem_CurPos);
+	}
+	*/
 
 	return CDialogEx::PreTranslateMessage(pMsg);
 }
@@ -3778,6 +3812,516 @@ afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 	return 0;
 }
 
+
+afx_msg LRESULT CSmartFilmUI::OnImgprocess(WPARAM wParam, LPARAM lParam)
+{
+	int tem_nOperation = (int)wParam;    //操作码
+	int tem_nInfo      = (int)lParam;    //操作信息
+	CString  tem_strProcess = _T("");         //用于色彩平衡后重新加载图像
+	std::string strTempData; 
+	switch(tem_nOperation)
+	{
+	case 0:
+		//保存
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		if (m_vcHistoryImg.size()>2)
+		{
+			//0)弹出保存格式对话款，选择保存格式
+
+			//1)更新buffer图像信息
+			m_strBufferImgPath = m_vcHistoryImg.back();
+			//2)替换原文件
+			CopyFile(m_strBufferImgPath, m_strFilesPath, FALSE);
+			std::vector<CString>::iterator item;
+			for (item=m_vcHistoryImg.begin()+1; item!=m_vcHistoryImg.end()-1; item++)
+			{
+				DeleteFile(*item);
+			}
+
+			{
+				//保存为原格式，并更新视图以及其他信息
+
+				//4)更新图像显示
+				std::string strTempData = (CStringA)m_strBufferImgPath; 
+				m_cvSrcImage.release();
+				m_cvDstImage.release();
+				m_cvLastImg.release();
+				m_cvNextImg.release();
+				m_cvSrcImage = imread(strTempData);
+				Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+				//5)重置vector
+				m_vcHistoryImg.clear();
+				m_vcHistoryImg.push_back(m_strFilesPath);
+				m_vcHistoryImg.push_back(m_strBufferImgPath);
+				//6)更新变量
+				m_BNoSaved  = FALSE;
+				//7)更新缩略图
+				Self_UpdateThumb(m_nPrcsIndex, m_strFilesPath);
+			}
+		}
+		break;
+	case 1:
+		//撤销
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		if (m_vcHistoryImg.size()>2)
+		{
+			CString  tem_strNewImg = m_vcHistoryImg.back();
+			//删除最后一张图像
+			DeleteFile(tem_strNewImg);
+			//删除vector最后一个元素
+			m_vcHistoryImg.erase(m_vcHistoryImg.end()-1);
+			//更新地址
+			tem_strNewImg = m_vcHistoryImg.back();		
+			std::string tem_sNewImg = (CStringA)tem_strNewImg; 
+			m_cvSrcImage  = imread(tem_sNewImg);	//重新加载图像则需要重新计算区域，例如裁切后图像尺寸发生变化
+			tem_strNewImg.ReleaseBuffer();
+
+			Self_ClearPicCtrl();
+			Self_ResetImageRect();
+			Self_ResizeImage(pWnd, m_cvSrcImage);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);			
+		}
+		else if (m_vcHistoryImg.size()==2)
+		{
+			m_BNoSaved = FALSE;
+		}
+		break;
+	case 2:
+		//重置
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		if (m_vcHistoryImg.size()>2)
+		{
+			//1)重新加载图像
+			std::string strTempData = (CStringA)m_strBufferImgPath; 
+			m_cvSrcImage.release();
+			m_cvDstImage.release();
+			m_cvLastImg.release();
+			m_cvNextImg.release();
+			m_cvSrcImage = imread(strTempData);
+			Self_ClearPicCtrl();
+			Self_ResetImageRect();
+			Self_ResizeImage(pWnd, m_cvSrcImage);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+			//2)删除其他缓存图像
+			std::vector<CString>::iterator item;
+			for (item=m_vcHistoryImg.begin()+2; item!=m_vcHistoryImg.end(); item++)
+			{
+				DeleteFile(*item);
+			}
+			//3)重置vector
+			m_vcHistoryImg.clear();
+			m_vcHistoryImg.push_back(m_strFilesPath);
+			m_vcHistoryImg.push_back(m_strBufferImgPath);
+			//4)更新变量
+			m_BNoSaved  = FALSE;
+		}
+		break;
+	case 3:
+		//适应屏幕
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		Self_ClearPicCtrl();
+		Self_ResetImageRect();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		break;
+	case 4:
+		//原始大小
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		//原方法：调用放大缩小函数，实现1:1原图显示
+		// 		m_fCurRatio = 0.95;
+		// 		Self_ZoomSize(m_cvSrcImage, m_fCurRatio, TRUE);
+		// 		m_fCurRatio = 1.0;
+
+		m_BOriSize = TRUE;
+		BOOL tem_BRC; 
+		if (m_fCurRatio<=0.95)
+		{
+			tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, TRUE);
+			while (tem_BRC)
+			{
+				m_fCurRatio+=0.05;
+				if (m_fCurRatio>=0.95)
+				{
+					m_BOriSize = FALSE;
+					tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, TRUE);
+					m_fCurRatio+=0.05;
+					break;
+				}
+				tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, TRUE);
+			}
+		}
+		else if (m_fCurRatio>=1.05)
+		{
+			tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, FALSE);
+			while (tem_BRC)
+			{
+				m_fCurRatio-=0.05;
+				if (m_fCurRatio<=1.05)
+				{
+					m_BOriSize = FALSE;
+					tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, FALSE);
+					m_fCurRatio-=0.05;
+					break;
+				}
+				tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, FALSE);
+			}
+		}
+		break;
+	case 5:
+		//左旋
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_BNoSaved = TRUE;
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = ImageRotate(m_cvSrcImage, 90);
+		m_cvSrcImage = m_cvDstImage.clone();
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ClearPicCtrl();
+		Self_ResetImageRect();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		break;
+	case 6:
+		//右旋
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_BNoSaved = TRUE;
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = ImageRotate(m_cvSrcImage, -90);
+		m_cvSrcImage = m_cvDstImage.clone();
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ClearPicCtrl();
+		Self_ResetImageRect();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		break;
+	case 7:
+		//180
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_BNoSaved = TRUE;
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = ImageRotate(m_cvSrcImage, 180);
+		m_cvSrcImage = m_cvDstImage.clone();
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ResetImageRect();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		break;
+	case 8:
+		//水平镜像
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_BNoSaved = TRUE;
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = ImageMirror(m_cvSrcImage, TRUE);
+		m_cvSrcImage = m_cvDstImage.clone();
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ResetImageRect();
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		break;
+	case 9:
+		//垂直镜像
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_BNoSaved = TRUE;
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = ImageMirror(m_cvSrcImage, FALSE);
+		m_cvSrcImage = m_cvDstImage.clone();
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ResetImageRect();
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		break;
+	case 10:
+		//手动旋转
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_dlgPro.Self_DisableCtrl(2); 
+		m_BNoSaved   = TRUE;
+		m_BPaintLine = TRUE;
+		Self_CreateLine();
+		m_BSelectTab = TRUE;
+	
+		break;
+	case 11:
+		//亮度
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			//将亮度调节条置回原位
+
+			m_dlgPro.Self_ResetSlider(0);
+			break;
+		}
+		if (tem_nInfo!=m_nLastBrit)
+		{
+			m_dlgPro.Self_DisableCtrl(0);
+			m_BNoSaved   = TRUE;
+			m_nLastBrit  = tem_nInfo;
+			m_cvSrcImage.copyTo(m_cvLastImg);
+			m_cvDstImage = BrightAndContrast(m_cvSrcImage, m_nLastBrit, m_nLastCtst);
+			Self_ShowMatImage2(m_cvDstImage, m_rcImageShow);
+			m_BSelectTab = TRUE;
+		}
+		break;
+	case 12:
+		//对比度
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			m_dlgPro.Self_ResetSlider(1);
+			break;
+		}
+		if (tem_nInfo!=m_nLastCtst)
+		{
+			m_dlgPro.Self_DisableCtrl(0);
+			m_BNoSaved   = TRUE;
+			m_nLastCtst  = tem_nInfo;
+			m_cvSrcImage.copyTo(m_cvLastImg);
+			m_cvDstImage = BrightAndContrast(m_cvSrcImage, m_nLastBrit, m_nLastCtst);
+			Self_ShowMatImage2(m_cvDstImage, m_rcImageShow);
+			m_BSelectTab = TRUE;
+		}
+		break;
+	case 13:
+		//Gama
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			m_dlgPro.Self_ResetSlider(2);
+			break;
+		}
+		if (tem_nInfo!=m_nLastCGama)
+		{
+			if (tem_nInfo!=0)
+			{
+				m_dlgPro.Self_DisableCtrl(0);
+				m_BNoSaved   = TRUE;
+				m_nLastCGama  = tem_nInfo;
+				m_cvSrcImage.copyTo(m_cvLastImg);
+				m_cvDstImage = ImageGamma(m_cvSrcImage, m_nLastCGama);
+				Self_ShowMatImage2(m_cvDstImage, m_rcImageShow);
+				m_BSelectTab = TRUE;
+			}
+		}
+		break;
+	case 14:
+		//标注
+		break;
+	case 15:
+		//画线
+		break;
+	case 16:
+		//文本
+		break;
+	case 17:
+		//裁切
+		break;
+	case 18:
+		//反色
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		ImageInvert(m_cvSrcImage);
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		m_BNoSaved = TRUE;
+		m_cvLastImg.release();
+		m_cvNextImg.release();
+		m_cvDstImage.release();
+		break;
+	case 19:
+		//锐化
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = ImageSharp(m_cvSrcImage);
+		m_cvSrcImage = m_cvDstImage.clone();
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		m_BNoSaved = TRUE;
+		m_cvLastImg.release();
+		m_cvNextImg.release();
+		m_cvDstImage.release();
+		break;
+	case 20:
+		//确定
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		switch(tem_nInfo)
+		{
+		case 11:
+		case 12:
+		case 13:
+			m_cvDstImage.copyTo(m_cvNextImg);
+			Self_SaveLastImg();
+
+			//重新加载依次，否则可能出现黑屏
+			tem_strProcess = m_vcHistoryImg.back();
+			strTempData = (CStringA)tem_strProcess; 
+			m_cvSrcImage = imread(strTempData);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+			m_BSelectTab = FALSE;
+			break;
+		case 10:
+			if (m_nAngleCount!=0)
+			{
+				m_cvSrcImage = m_cvDstImage.clone();
+			}
+			Self_SaveLastImg();
+			m_BPaintLine = FALSE;
+			Self_CreateLine();
+			m_nAngleCount = 0;
+			m_BSelectTab = FALSE;
+			break;
+		case 14:
+		case 15:
+			m_cvDstImage.copyTo(m_cvNextImg);
+
+			//重新加载依次，否则可能出现黑屏
+			tem_strProcess = m_vcHistoryImg.back();
+			strTempData = (CStringA)tem_strProcess; 
+			m_cvSrcImage = imread(strTempData);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+			m_BLabel     = FALSE;
+			m_nNoteCount = 0;
+			m_ptNoteSite.x = 0;
+			m_ptNoteSite.y = 0;
+			break;
+		case 16:
+			m_cvDstImage.copyTo(m_cvNextImg);
+
+			//重新加载依次，否则可能出现黑屏
+			tem_strProcess = m_vcHistoryImg.back();
+			strTempData = (CStringA)tem_strProcess; 
+			m_cvSrcImage = imread(strTempData);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+			m_BLabel     = FALSE;
+			m_nNoteCount = 0;
+			break;
+		}
+		::SetFocus(m_hWnd);        //避免窗口无法响应OnMouseWheel消息
+		break;
+	case 21:
+		//取消
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		if (tem_nInfo == 10)
+		{
+			//放弃旋转
+			m_BPaintLine = FALSE;
+			if (m_nAngleCount!=0)
+			{
+				m_cvSrcImage = m_cvLastImg.clone();
+			}
+
+			Self_ClearPicCtrl();
+			Self_ResetImageRect();
+			Self_ResizeImage(pWnd, m_cvSrcImage);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+			m_nAngleCount = 0;
+
+			m_cvLastImg.release();
+			m_cvNextImg.release();
+		} 
+		else if (tem_nInfo == 11 || tem_nInfo == 12 || tem_nInfo == 13)
+		{
+			//放弃色彩平衡
+			m_cvSrcImage = m_cvLastImg.clone();
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+
+			m_cvLastImg.release();
+			m_cvNextImg.release();
+		}
+		else if (tem_nInfo == 14 || tem_nInfo ==15 || tem_nInfo == 16)
+		{
+			//放弃画框
+			for (int i=0; i<m_nNoteCount&&m_vcHistoryImg.size()>2; i++)
+			{
+				CString  tem_strNewImg = m_vcHistoryImg.back();
+				//删除最后一张图像
+				DeleteFile(tem_strNewImg);
+				//删除vector最后一个元素
+				m_vcHistoryImg.erase(m_vcHistoryImg.end()-1);	 
+			}
+			tem_strProcess = m_vcHistoryImg.back();
+			strTempData = (CStringA)tem_strProcess; 
+			m_cvSrcImage = imread(strTempData);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+
+			m_cvLastImg.release();
+			m_cvNextImg.release();
+			m_BLabel     = FALSE;
+			m_nNoteCount = 0;
+		}
+		::SetFocus(m_hWnd);        //避免窗口无法响应OnMouseWheel消息
+		m_BSelectTab = FALSE;
+		m_ptNoteSite.x = 0;
+		m_ptNoteSite.y = 0;
+		break;
+	}
+	
+	return 0;
+}
+
+
 //控件方法*****************************************************************************
 
 void CSmartFilmUI::OnSelchangeTabCtrl(NMHDR *pNMHDR, LRESULT *pResult)
@@ -5899,4 +6443,1140 @@ void CSmartFilmUI::Self_ClearPicCtrl(void)
 	tem_pDc = tem_pWnd->GetDC();
 	tem_pDc->FillSolidRect(0, 0, tem_rcPicCtrl.right-tem_rcPicCtrl.left, tem_rcPicCtrl.bottom-tem_rcPicCtrl.top,RGB(72,77,91));
 	m_conPicCtrl.SetBitmap(NULL);
+}
+
+
+
+BOOL CSmartFilmUI::Self_ZoomSize(Mat src, float ratio, bool zoommark)
+{
+	int tem_nImageWidth  = src.cols;   //图像原始尺寸
+	int tem_nImageHeight = src.rows;
+
+	int tem_nThumbWidth  = 0;          //放大、缩小后缩略图尺寸
+	int tem_nThumbHeight = 0;
+
+	CRect   tem_rcPicRect; 
+	GetDlgItem(IDC_STA_PIC)->GetWindowRect(&tem_rcPicRect);
+	ScreenToClient(&tem_rcPicRect);
+
+
+	float   tem_fCurRatio = ratio;
+
+	int     tem_nDrawX, tem_nDrawY, tem_nDrawW, tem_nDrawH;   //映射起点以及宽高
+
+	if (zoommark)
+	{
+		//放大************************************
+		tem_fCurRatio += 0.05;        //一次放大5%
+	}
+	else
+	{
+		//缩小************************************
+		tem_fCurRatio -= 0.05;        //一次缩小5%
+	}
+	if (tem_fCurRatio>=2.0)
+	{
+		tem_fCurRatio=2.0;
+		return FALSE;
+	}
+	else if (tem_fCurRatio<=0.05)
+	{
+		tem_fCurRatio=0.05;
+		return FALSE;
+	}
+
+	//放大后缩略图尺寸
+	tem_nThumbWidth  = (int)(tem_fCurRatio*tem_nImageWidth);
+	tem_nThumbHeight = (int)(tem_fCurRatio*tem_nImageHeight);
+	//1)放大后缩略图尺寸<picture控件尺寸
+	if (tem_nThumbWidth<tem_rcPicRect.Width() && tem_nThumbHeight<tem_rcPicRect.Height())
+	{
+		//picture显示区域
+		tem_nDrawX           = (tem_rcPicRect.Width()-tem_nThumbWidth)/2;
+		tem_nDrawY           = (tem_rcPicRect.Height()-tem_nThumbHeight)/2;
+		tem_nDrawW           = tem_nThumbWidth;
+		tem_nDrawH           = tem_nThumbHeight;
+		m_rcImageShow.left   = tem_nDrawX;
+		m_rcImageShow.top    = tem_nDrawY;
+		m_rcImageShow.right  = tem_nDrawX + tem_nDrawW;
+		m_rcImageShow.bottom = tem_nDrawY + tem_nDrawH;
+		//图像显示区域
+		m_rcImageRect.left     = 0;
+		m_rcImageRect.top      = 0;
+		m_rcImageRect.right    = m_cvSrcImage.cols;
+		m_rcImageRect.bottom   = m_cvSrcImage.rows;
+	}
+	//2)放大后缩略图宽<picture宽，且缩略图高>picture高
+	else if (tem_nThumbWidth<tem_rcPicRect.Width() && tem_nThumbHeight>tem_rcPicRect.Height())
+	{
+		//picture显示区域
+		tem_nDrawX           = (tem_rcPicRect.Width()-tem_nThumbWidth)/2;
+		tem_nDrawY           = 0;
+		tem_nDrawW           = tem_nThumbWidth;
+		tem_nDrawH           = tem_rcPicRect.Height();
+		m_rcImageShow.left   = tem_nDrawX;
+		m_rcImageShow.top    = tem_nDrawY;
+		m_rcImageShow.right  = tem_nDrawX + tem_nDrawW;
+		m_rcImageShow.bottom = tem_nDrawY + tem_nDrawH;
+		//图像显示区域
+		m_rcImageRect.left     = 0;
+		m_rcImageRect.right    = m_cvSrcImage.cols;
+
+		//源图显示区域的的真实高m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+		m_rcImageRect.top      = (m_cvSrcImage.rows-m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight))/2;
+		m_rcImageRect.bottom   = m_rcImageRect.top+m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+
+	}
+	//3)放大后缩略图宽>picture宽，且缩略图高<picture高
+	else if (tem_nThumbWidth>tem_rcPicRect.Width() && tem_nThumbHeight<tem_rcPicRect.Height())
+	{
+		//picture显示区域
+		tem_nDrawX           = 0;
+		tem_nDrawY           = (tem_rcPicRect.Height()-tem_nThumbHeight)/2;
+		tem_nDrawW           = tem_rcPicRect.Width();
+		tem_nDrawH           = tem_nThumbHeight;
+		m_rcImageShow.left   = tem_nDrawX;
+		m_rcImageShow.top    = tem_nDrawY;
+		m_rcImageShow.right  = tem_nDrawX + tem_nDrawW;
+		m_rcImageShow.bottom = tem_nDrawY + tem_nDrawH;
+		//图像显示区域
+
+		m_rcImageRect.top      = 0;
+		m_rcImageRect.bottom   = m_cvSrcImage.rows;
+		//源图显示区域的真是宽m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth)
+		m_rcImageRect.left     = (m_cvSrcImage.cols-m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth))/2;
+		m_rcImageRect.right    = m_rcImageRect.left+m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth);	
+
+	}
+	//4）放大后缩略图宽>picture宽，且缩略图高>picture高
+	else if (tem_nThumbWidth>tem_rcPicRect.Width() && tem_nThumbHeight>tem_rcPicRect.Height())
+	{
+		//picture显示区域
+		tem_nDrawX           = 0;
+		tem_nDrawY           = 0;
+		tem_nDrawW           = tem_rcPicRect.Width();
+		tem_nDrawH           = tem_rcPicRect.Height();
+		m_rcImageShow.left   = tem_nDrawX;
+		m_rcImageShow.top    = tem_nDrawY;
+		m_rcImageShow.right  = tem_nDrawX + tem_nDrawW;
+		m_rcImageShow.bottom = tem_nDrawY + tem_nDrawH;
+
+		//图像显示区域
+		m_rcImageRect.left     = (m_cvSrcImage.cols-m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth))/2;
+		m_rcImageRect.top      = (m_cvSrcImage.rows-m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight))/2;;
+		m_rcImageRect.right    = m_rcImageRect.left+m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth);
+		m_rcImageRect.bottom   = m_rcImageRect.top+m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+
+
+	}
+	//该判断仅用于1:1显示标志位
+	if (!m_BOriSize)    
+	{
+		if (zoommark)
+		{
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		}
+		else
+		{
+			Self_ClearPicCtrl();
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		}
+	}
+
+	return TRUE;
+}
+
+
+Mat CSmartFilmUI::ImageRotate(Mat img, int angle)
+{
+	int     tem_nDegree = angle;
+	double  tem_dAngle  = tem_nDegree*CV_PI/180;
+	double  a = sin(tem_dAngle), b = cos(tem_dAngle);
+	int     tem_nWidth = img.cols;
+	int     tem_nHeight= img.rows;
+	int     m_width_rotate = int(tem_nHeight *fabs(a)+ tem_nWidth *fabs(b));
+	int     m_height_rotate= int(tem_nWidth *fabs(a)+tem_nHeight *fabs(b));
+	float   map[6];
+	Mat     m_map_matrix(2,3,CV_32F, map);
+
+	CvPoint2D32f center = cvPoint2D32f(tem_nWidth / 2, tem_nHeight / 2);  
+	CvMat map_matrix2 = m_map_matrix;  
+	cv2DRotationMatrix(center, tem_nDegree, 1.0, &map_matrix2); 
+	map[2] += (m_width_rotate - tem_nWidth)/2;
+	map[5] += (m_height_rotate - tem_nHeight)/2;
+
+	Mat    tem_cvMidImage;
+	tem_cvMidImage.create(cv::Size(m_width_rotate, m_height_rotate), img.type());
+	warpAffine(img, tem_cvMidImage, m_map_matrix, cv::Size( m_width_rotate, m_height_rotate),1,0,0);
+	return tem_cvMidImage;
+}
+
+
+void CSmartFilmUI::Self_SaveLastImg(void)
+{
+	//拿到缓存目录
+	CString   tem_strFileName = m_strCVDoc;
+
+	//获取文件后缀
+	CString   tem_strFileFormat = PathFindExtension(m_strFilesPath);
+
+	//获取当前时间精确到毫秒
+	SYSTEMTIME   tem_stDateTime;
+	CString      tem_strDate = _T("");
+	CString      tem_strTime = _T("");
+	GetLocalTime(&tem_stDateTime);
+	tem_strDate.Format(_T("%d%02d%02d"), tem_stDateTime.wYear, tem_stDateTime.wMonth, tem_stDateTime.wDay);
+	tem_strTime.Format(_T("%02d%02d%02d%02d"), tem_stDateTime.wHour, tem_stDateTime.wMinute, tem_stDateTime.wSecond, tem_stDateTime.wMilliseconds); 
+
+	//输出新的文件名
+	tem_strFileName += _T("\\");
+	tem_strFileName += tem_strDate;
+	tem_strFileName += tem_strTime;
+	tem_strFileName += tem_strFileFormat;
+
+	//保存图像
+	std::string tem_sFilePath = (CStringA)tem_strFileName; 
+	imwrite(tem_sFilePath, m_cvNextImg);
+	m_vcHistoryImg.push_back(tem_strFileName);
+}
+
+
+Mat CSmartFilmUI::ImageMirror(Mat img, bool mirrormark)
+{
+	Mat  tem_cvMidImg;
+	tem_cvMidImg.create(img.size(), img.type());
+	Mat  map_x;
+	Mat  map_y;
+	map_x.create(img.size(), CV_32FC1);
+	map_y.create(img.size(), CV_32FC1);
+	if (mirrormark)
+	{
+		//水平镜像
+		for (int i=0; i<img.rows; ++i)
+		{
+			for (int j=0; j<img.cols; ++j)
+			{
+				map_x.at<float>(i,j) = (float)(img.cols-j);
+				map_y.at<float>(i,j) = (float)i;		
+			}
+		}
+		remap(img, tem_cvMidImg, map_x, map_y, CV_INTER_LINEAR);
+	}
+	else
+	{
+		//垂直镜像
+		for (int i=0; i<img.rows; i++)
+		{
+			for (int j=0; j<img.cols; j++)
+			{
+				map_x.at<float>(i,j) = (float)j;
+				map_y.at<float>(i,j) = (float)(img.rows-i);		
+			}
+		}
+		remap(img, tem_cvMidImg, map_x, map_y,CV_INTER_LINEAR);
+	}
+	return tem_cvMidImg;
+}
+
+
+Mat CSmartFilmUI::ImageInvert(Mat img)
+{
+	int    tem_nImgWidth  = img.cols;
+	int    tem_nImgHeight = img.rows;
+	int    tem_nImgStep   = img.step;;
+	int    tem_nImgChannel= img.channels();
+	uchar* tem_ucImgDate  = (uchar*)img.data;
+
+	for (int i=0; i<tem_nImgHeight; i++)
+	{
+		for (int j=0; j<tem_nImgWidth; j++)
+		{
+			for (int k=0; k<tem_nImgChannel; k++)
+			{
+				tem_ucImgDate[i*tem_nImgStep+j*tem_nImgChannel+k]= 255-tem_ucImgDate[i*tem_nImgStep+j*tem_nImgChannel+k];
+			}
+		}
+	}
+	return img;
+}
+
+
+Mat CSmartFilmUI::ImageSharp(Mat img)
+{
+	Mat   kernel(3, 3, CV_32F, Scalar(0));
+	/*算子1
+	kernel.at<float>(0,0) = 0;    kernel.at<float>(0,1) = -1.0; kernel.at<float>(0,2) = 0;
+	kernel.at<float>(1,0) = -1.0; kernel.at<float>(1,1) = 5.0;  kernel.at<float>(1,2) = -1.0;
+	kernel.at<float>(2,0) = 0;    kernel.at<float>(2,1) = -1.0; kernel.at<float>(2,2) = 0;
+	*/
+
+
+	/*算子2
+	kernel.at<float>(0,0) = 1.0; kernel.at<float>(0,1) = 1.0;  kernel.at<float>(0,2) = 1.0;
+	kernel.at<float>(1,0) = 1.0; kernel.at<float>(1,1) = -8.0; kernel.at<float>(1,2) = 1.0;
+	kernel.at<float>(2,0) = 1.0; kernel.at<float>(2,1) = 1.0;  kernel.at<float>(2,2) = 1.0;
+	*/
+
+	kernel.at<float>(0,0) = -1.0/7; kernel.at<float>(0,1) = -2.0/7;  kernel.at<float>(0,2) = -1.0/7;
+	kernel.at<float>(1,0) = -2.0/7; kernel.at<float>(1,1) = 19.0/7;   kernel.at<float>(1,2) = -2.0/7;
+	kernel.at<float>(2,0) = -1.0/7; kernel.at<float>(2,1) = -2.0/7;  kernel.at<float>(2,2) = -1.0/7;
+
+	Mat    tem_cvMidImage;
+	tem_cvMidImage.create(img.size(), img.type());
+	filter2D(img, tem_cvMidImage, img.depth(), kernel);    //depth参数为-1时，生成图像与原图保持一致。
+	
+	return tem_cvMidImage;
+}
+
+
+Mat CSmartFilmUI::BrightAndContrast(Mat img, int bright, int contrast)
+{
+	Mat   tem_cvMidImage = img.clone();
+	Mat   tem_cvDstImage;
+	tem_cvDstImage = Mat::zeros(img.size(), img.type());
+
+	if (tem_cvMidImage.channels()==3)
+	{
+		for (int y=0; y<tem_cvMidImage.rows; y++)
+		{
+			for (int x=0; x<tem_cvMidImage.cols; x++)
+			{
+				for (int c=0; c<3; c++)
+				{
+					tem_cvDstImage.at<Vec3b>(y,x)[c] = saturate_cast<uchar>((contrast*0.01+1)*(tem_cvMidImage.at<Vec3b>(y,x)[c])+bright);
+				}
+			}
+		}
+	}
+	else if (tem_cvMidImage.channels()==1)
+	{
+		//灰度、黑白单通道图像
+		for (int y=0; y<tem_cvMidImage.rows; y++)
+		{
+			for (int x=0; x<tem_cvMidImage.cols; x++)
+			{
+				tem_cvDstImage.at<uchar>(y,x) = saturate_cast<uchar>((contrast*0.01+1)*(tem_cvMidImage.at<uchar>(y,x))+bright);
+			}
+		}
+	}
+
+	return tem_cvDstImage;
+}
+
+
+Mat CSmartFilmUI::ImageGamma(Mat img, int gama)
+{
+	float  tem_fGama = (float)gama*1.0/100;
+	Mat    tem_cvMidImage = img.clone();
+	//建立查表文件LUT
+	unsigned char LUT[256];
+	for (int i=0; i<256; i++)
+	{
+		//Gamma变换表达式
+		LUT[i] = saturate_cast<uchar>(pow((float)(i/255.0), tem_fGama) * 255.0f);
+	}
+
+	//判断图像通道数量
+	if (tem_cvMidImage.channels() == 1)
+	{
+		MatIterator_<uchar> iterator = tem_cvMidImage.begin<uchar>();
+		MatIterator_<uchar> iteratorEnd = tem_cvMidImage.end<uchar>();
+		for (; iterator!=iteratorEnd;iterator++)
+		{
+			*iterator = LUT[(*iterator)];
+		}
+	} 
+	else
+	{
+		//三通道 时对每个通道单独处理
+		MatIterator_<Vec3b> iterator = tem_cvMidImage.begin<Vec3b>();
+		MatIterator_<Vec3b> iteratorEnd = tem_cvMidImage.end<Vec3b>();
+		for ( ; iterator!=iteratorEnd; iterator++)
+		{
+			(*iterator)[0] = LUT[((*iterator)[0])];
+			(*iterator)[1] = LUT[((*iterator)[1])];
+			(*iterator)[2] = LUT[((*iterator)[2])];
+		}
+	}
+
+	return tem_cvMidImage;
+}
+
+
+void CSmartFilmUI::Self_CreateLine(void)
+{
+	CRect  tem_rcPicCtrl;
+	m_conPicCtrl.GetClientRect(&tem_rcPicCtrl);
+
+	HDC    hdc = ::GetDC(m_conPicCtrl.GetSafeHwnd());
+	SetROP2(hdc, R2_NOTXORPEN);
+
+	HPEN   hpen = CreatePen(PS_DOT, 1, RGB(255, 0, 0));
+	SelectObject(hdc, hpen);
+	SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+	MoveToEx(hdc, tem_rcPicCtrl.left, tem_rcPicCtrl.Height()/2, NULL);
+	LineTo(hdc, tem_rcPicCtrl.right, tem_rcPicCtrl.Height()/2);
+
+	MoveToEx(hdc, tem_rcPicCtrl.Width()/2, tem_rcPicCtrl.top, NULL);
+	LineTo(hdc, tem_rcPicCtrl.Width()/2, tem_rcPicCtrl.bottom);
+
+	::DeleteObject(hpen);
+}
+
+
+void CSmartFilmUI::OnLButtonDown(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	ClientToScreen(&point);
+
+	if (m_BPaintLine)
+	{
+		//记录画线起点
+		CRect tem_rcPic = m_rcImageShow;
+		//将picture控件区域修改为图像区域
+		m_conPicCtrl.ClientToScreen(tem_rcPic);
+		if(tem_rcPic.PtInRect(point))
+		{
+			m_BLButtonDown = TRUE;
+			SetCapture();
+			SetCursor(LoadCursor(NULL,IDC_UPARROW));
+			m_conPicCtrl.ScreenToClient(&point);
+			m_ptOri = point;
+			m_ptEnd = point;
+		}
+	}
+	else if (m_BSlcRect)
+	{
+		//选区**********************************
+		CRect tem_rcPic;
+		m_conPicCtrl.GetClientRect(tem_rcPic);
+		m_conPicCtrl.ClientToScreen(tem_rcPic);
+		if(tem_rcPic.PtInRect(point))
+		{
+			m_BLButtonDown = TRUE;
+			SetCapture();
+			m_conPicCtrl.ScreenToClient(&point);
+			m_ptOri = point;
+			m_ptEnd = point;
+		}
+	}
+	else if (m_BLabel)
+	{
+		CRect tem_rcPic;
+		m_conPicCtrl.GetClientRect(tem_rcPic);
+		m_conPicCtrl.ClientToScreen(tem_rcPic);
+		if(tem_rcPic.PtInRect(point))
+		{
+			m_BLButtonDown = TRUE;
+			SetCapture();
+			m_conPicCtrl.ScreenToClient(&point);
+			m_ptOri = point;
+			m_ptEnd = point;
+		}
+	}
+	else
+	{
+		//拖动***********************************
+		m_BLButtonDown = TRUE;
+		ClientToScreen(m_rcImageShow);
+		if (m_rcImageShow.PtInRect(point))
+		{
+			SetCapture();
+			SetCursor(LoadCursor(NULL,IDC_HAND));
+			m_ptDragOri = point;       //拖动起点
+			m_ptDragEnd = point;
+		}
+		ScreenToClient(m_rcImageShow);
+	}
+
+	CDialogEx::OnLButtonDown(nFlags, point);
+}
+
+
+void CSmartFilmUI::OnLButtonUp(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	if (m_BLButtonDown)
+	{
+		if (m_BPaintLine)
+		{
+			BOOL     tem_BOrientation = TRUE;   //旋转方向标志位，默认顺时针
+			double   tem_dRadian = 0;     //弧度
+			int      tem_nAngle  = 0;     //角度
+			m_BLButtonDown = FALSE;
+			ReleaseCapture();
+			SetCursor(LoadCursor(NULL,IDC_ARROW));	
+
+			//根据坐标点求出旋转直线与X轴正向夹角
+			if (m_ptOri == m_ptEnd)
+			{
+				//未画线，无夹角
+				tem_nAngle = 0;
+				tem_BOrientation = TRUE;
+
+			}
+			else if (m_ptOri.x==m_ptEnd.x && m_ptOri.y!=m_ptEnd.y)
+			{
+				//夹角为90度，垂直方向
+				tem_nAngle = 90;
+				//从上到下为顺，从下到上为逆
+				if (m_ptOri.y<m_ptEnd.y)
+				{
+					tem_BOrientation = TRUE;
+				} 
+				else
+				{
+					tem_BOrientation = FALSE;
+				}
+
+			}
+			else if (m_ptOri.y==m_ptEnd.y && m_ptOri.x!=m_ptEnd.x)
+			{
+				//夹角为0度，水平方向
+				tem_nAngle = 0;
+				tem_BOrientation = TRUE;
+			}
+			else
+			{
+				//求夹角
+				int   tem_nLineWidth  = abs(m_ptOri.x-m_ptEnd.x);
+				int   tem_nLineHeight = abs(m_ptOri.y-m_ptEnd.y);
+				tem_dRadian = atan(tem_nLineHeight*1.0/tem_nLineWidth);
+				tem_nAngle  = (tem_dRadian*180/m_fPI);
+				if (m_ptOri.x<m_ptEnd.x)
+				{
+					tem_BOrientation = TRUE;
+				} 
+				else
+				{
+					tem_BOrientation = FALSE;
+				}
+			}
+			if (tem_BOrientation)
+			{
+				tem_nAngle *= -1;
+			} 
+			
+			//旋转图像
+			m_nAngleCount += tem_nAngle;
+			m_cvDstImage = ImageRotate(m_cvSrcImage, m_nAngleCount);
+			//更新视图
+			m_cvLastImg = m_cvSrcImage.clone();
+			m_cvNextImg = m_cvDstImage.clone();
+
+			Self_ClearPicCtrl();
+			Self_ResetImageRect();
+			Self_ResizeImage(pWnd, m_cvNextImg);
+			Self_ShowMatImage2(m_cvNextImg, m_rcImageShow);
+			Self_CreateLine();		
+			
+		}
+		else if (m_BSlcRect)
+		{
+			m_BLButtonDown = FALSE;
+			m_BSlcRect     = FALSE;
+			m_BSlcRected   = TRUE;
+			ReleaseCapture();
+
+			//考虑鼠标从左上、左下、右上、右下四种方向画选取
+			if (m_ptOri.x<m_ptEnd.x)
+			{
+				m_rcImageCrop.left = m_ptOri.x;
+				m_rcImageCrop.right= m_ptEnd.x;
+			}
+			else
+			{
+				m_rcImageCrop.left = m_ptEnd.x;
+				m_rcImageCrop.right= m_ptOri.x;
+			}
+			if (m_ptOri.y<m_ptEnd.y)
+			{
+				m_rcImageCrop.top  = m_ptOri.y;
+				m_rcImageCrop.bottom=m_ptEnd.y;
+			}
+			else
+			{
+				m_rcImageCrop.top  = m_ptEnd.y;
+				m_rcImageCrop.bottom=m_ptOri.y;
+			}
+
+			m_cvSrcImage.copyTo(m_cvLastImg);
+			m_cvDstImage = Self_CropImage(m_cvSrcImage, m_rcImageShow, m_rcImageCrop);
+			m_cvDstImage.copyTo(m_cvSrcImage);
+			m_cvSrcImage.copyTo(m_cvNextImg);
+			Self_ResetImageRect();
+			Self_ResizeImage(pWnd, m_cvSrcImage);
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+			Self_SaveLastImg();
+			m_BSlcRect   = FALSE;
+			m_BSlcRected = FALSE;
+		}
+		else if (m_BLabel)
+		{
+				m_BLButtonDown = FALSE;
+//				m_BLabel       = FALSE;
+				ReleaseCapture();
+
+			if (m_nLineMode == 0)
+			{
+				//考虑鼠标从左上、左下、右上、右下四种方向画选取
+				if (m_ptOri.x<m_ptEnd.x)
+				{
+					m_rcImageCrop.left = m_ptOri.x;
+					m_rcImageCrop.right= m_ptEnd.x;
+				}
+				else
+				{
+					m_rcImageCrop.left = m_ptEnd.x;
+					m_rcImageCrop.right= m_ptOri.x;
+				}
+				if (m_ptOri.y<m_ptEnd.y)
+				{
+					m_rcImageCrop.top  = m_ptOri.y;
+					m_rcImageCrop.bottom=m_ptEnd.y;
+				}
+				else
+				{
+					m_rcImageCrop.top  = m_ptEnd.y;
+					m_rcImageCrop.bottom=m_ptOri.y;
+				}
+				//起始点坐标——m_pOri;  终点坐标——m_pEnd;
+				m_cvSrcImage.copyTo(m_cvLastImg);
+				m_cvDstImage = Self_DrawRetangle(m_cvSrcImage, m_rcImageShow, m_rcImageCrop, m_nLineWidth, m_refLineColor);
+				m_nNoteCount++;
+
+				m_cvDstImage.copyTo(m_cvSrcImage);
+				m_cvSrcImage.copyTo(m_cvNextImg);
+				Self_ResetImageRect();
+				Self_ResizeImage(pWnd, m_cvSrcImage);
+				Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+				Self_SaveLastImg();
+
+				
+			} 
+			else if (m_nLineMode == 1)
+			{
+				m_rcImageCrop.left  = m_ptOri.x;
+				m_rcImageCrop.top   = m_ptOri.y;
+				m_rcImageCrop.right = m_ptEnd.x;
+				m_rcImageCrop.bottom= m_ptEnd.y;
+				
+				m_cvSrcImage.copyTo(m_cvLastImg);
+
+				m_cvDstImage = Self_DrawArrow(m_cvSrcImage, m_rcImageShow, m_rcImageCrop, m_nLineWidth, m_refLineColor);
+				m_nNoteCount++;
+
+				m_cvDstImage.copyTo(m_cvSrcImage);
+				m_cvSrcImage.copyTo(m_cvNextImg);
+				Self_ResetImageRect();
+				Self_ResizeImage(pWnd, m_cvSrcImage);
+				Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+				Self_SaveLastImg();
+
+			}		
+			else if (m_nLineMode == 3)
+			{
+				//画一小段标记线
+				m_ptEnd.x = m_ptOri.x;
+				m_ptOri.y = m_ptOri.y - 30;
+
+				HDC hdc=::GetDC(m_conPicCtrl.GetSafeHwnd());
+//				SetROP2(hdc,R2_COPYPEN);          
+				SetROP2(hdc,R2_NOTXORPEN); 
+				HPEN hpen;
+				hpen=CreatePen(PS_SOLID, m_nLineWidth/2+1, m_refLineColor);
+				SelectObject(hdc,hpen);
+				SelectObject(hdc,GetStockObject(NULL_BRUSH));
+
+				MoveToEx(hdc, m_ptOri.x, m_ptOri.y, NULL);
+				LineTo(hdc, m_ptEnd.x, m_ptEnd.y);
+
+				::DeleteObject(hpen);
+
+				m_rcImageCrop.left  = m_ptOri.x;
+				m_rcImageCrop.top   = m_ptOri.y;
+
+				if (m_ptNoteSite.x!=0 || m_ptNoteSite.y!=0)
+				{
+					MoveToEx(hdc, m_ptNoteSite.x, m_ptNoteSite.y, NULL);
+					LineTo(hdc, m_ptNoteSite.x, m_ptNoteSite.y + 30);
+				}
+				m_ptNoteSite = m_ptOri;
+			}
+		}
+		else
+		{
+			m_BLButtonDown = FALSE;
+			ReleaseCapture();
+			SetCursor(LoadCursor(NULL,IDC_ARROW));	
+			
+		}
+
+	}
+	
+	CDialogEx::OnLButtonUp(nFlags, point);
+}
+
+
+void CSmartFilmUI::OnMouseMove(UINT nFlags, CPoint point)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	if (m_BLButtonDown)
+	{
+		if (m_BPaintLine)
+		{
+			//画线函数
+			ClientToScreen(&point);		
+			CRect tem_rcPic;
+			m_conPicCtrl.GetClientRect(tem_rcPic);
+			m_conPicCtrl.ClientToScreen(tem_rcPic);
+			if(tem_rcPic.PtInRect(point))
+			{
+				m_conPicCtrl.ScreenToClient(&point);			
+				HDC hdc=::GetDC(m_conPicCtrl.GetSafeHwnd());
+				SetROP2(hdc,R2_NOTXORPEN);          
+				HPEN hpen;
+				hpen=CreatePen(PS_SOLID,2,RGB(255,0,0));
+				SelectObject(hdc,hpen);
+				SelectObject(hdc,GetStockObject(NULL_BRUSH));
+
+				MoveToEx(hdc, m_ptOri.x, m_ptOri.y, NULL);
+				LineTo(hdc, m_ptEnd.x, m_ptEnd.y);
+				m_ptEnd = point;
+				MoveToEx(hdc, m_ptOri.x, m_ptOri.y, NULL);
+				LineTo(hdc, m_ptEnd.x, m_ptEnd.y);
+
+				::DeleteObject(hpen);
+			}
+
+		}
+		else if (m_BSlcRect)
+		{
+			ClientToScreen(&point);		
+			CRect tem_rcPic;
+			m_conPicCtrl.GetClientRect(tem_rcPic);
+			m_conPicCtrl.ClientToScreen(tem_rcPic);
+			if(tem_rcPic.PtInRect(point))
+			{
+				m_conPicCtrl.ScreenToClient(&point);			
+				HDC hdc=::GetDC(m_conPicCtrl.GetSafeHwnd());
+				SetROP2(hdc,R2_NOTXORPEN);          
+				HPEN hpen;
+				hpen=CreatePen(PS_SOLID,2,RGB(255,0,0));
+				SelectObject(hdc,hpen);
+				SelectObject(hdc,GetStockObject(NULL_BRUSH));
+				::Rectangle(hdc, m_ptOri.x, m_ptOri.y, m_ptEnd.x, m_ptEnd.y); 
+				m_ptEnd = point;
+				::Rectangle(hdc, m_ptOri.x, m_ptOri.y, m_ptEnd.x, m_ptEnd.y); 
+				::DeleteObject(hpen);
+			}
+		}
+		else if(m_BLabel)
+		{
+			if (m_nLineMode == 0)
+			{
+				ClientToScreen(&point);		
+				CRect tem_rcPic;
+				m_conPicCtrl.GetClientRect(tem_rcPic);
+				m_conPicCtrl.ClientToScreen(tem_rcPic);
+				if(tem_rcPic.PtInRect(point))
+				{
+					m_conPicCtrl.ScreenToClient(&point);			
+					HDC hdc=::GetDC(m_conPicCtrl.GetSafeHwnd());
+					SetROP2(hdc,R2_NOTXORPEN);   
+					HPEN hpen;
+					hpen=CreatePen(PS_SOLID, m_nLineWidth/2+1, m_refLineColor);
+					SelectObject(hdc,hpen);
+					SelectObject(hdc,GetStockObject(NULL_BRUSH));
+					::Rectangle(hdc, m_ptOri.x, m_ptOri.y, m_ptEnd.x, m_ptEnd.y); 
+					m_ptEnd = point;
+					::Rectangle(hdc, m_ptOri.x, m_ptOri.y, m_ptEnd.x, m_ptEnd.y); 
+					::DeleteObject(hpen);
+				}
+			} 
+			else if(m_nLineMode==1)
+			{
+				//画线函数
+				ClientToScreen(&point);		
+				CRect tem_rcPic;
+				m_conPicCtrl.GetClientRect(tem_rcPic);
+				m_conPicCtrl.ClientToScreen(tem_rcPic);
+				if(tem_rcPic.PtInRect(point))
+				{
+					m_conPicCtrl.ScreenToClient(&point);			
+					HDC hdc=::GetDC(m_conPicCtrl.GetSafeHwnd());
+					SetROP2(hdc,R2_NOTXORPEN);          
+					HPEN hpen;
+					hpen=CreatePen(PS_SOLID, m_nLineWidth/2+1, m_refLineColor);
+					SelectObject(hdc,hpen);
+					SelectObject(hdc,GetStockObject(NULL_BRUSH));
+
+					MoveToEx(hdc, m_ptOri.x, m_ptOri.y, NULL);
+					LineTo(hdc, m_ptEnd.x, m_ptEnd.y);
+					m_ptEnd = point;
+					MoveToEx(hdc, m_ptOri.x, m_ptOri.y, NULL);
+					LineTo(hdc, m_ptEnd.x, m_ptEnd.y);
+
+					::DeleteObject(hpen);
+				}
+			}
+			else if (m_nLineMode==2)
+			{
+				//随意画
+				m_conPicCtrl.ScreenToClient(&point);			
+				HDC hdc=::GetDC(m_conPicCtrl.GetSafeHwnd());
+				SetROP2(hdc,R2_COPYPEN);          
+				HPEN hpen;
+				hpen=CreatePen(PS_SOLID, m_nLineWidth/2+1, m_refLineColor);
+				SelectObject(hdc,hpen);
+				SelectObject(hdc,GetStockObject(NULL_BRUSH));
+
+				m_ptEnd = point;
+				MoveToEx(hdc, m_ptOri.x, m_ptOri.y, NULL);
+				LineTo(hdc, m_ptEnd.x, m_ptEnd.y);
+				m_ptOri = point;
+
+
+
+				::DeleteObject(hpen);
+			}
+		}
+		else
+		{			
+			ClientToScreen(&point);	
+			m_ptDragEnd = point;
+
+			int tem_nDragSpeed = 5;   //控制拖动速度，数值越大拖动越慢
+			int tem_nOffSetX = m_ptDragEnd.x-m_ptDragOri.x;
+			int tem_nOffSetY = m_ptDragEnd.y-m_ptDragOri.y;
+			//拖动重绘
+			int tem_nImageWidth  = m_cvSrcImage.cols;   //图像原始尺寸
+			int tem_nImageHeight = m_cvSrcImage.rows;
+
+			int tem_nThumbWidth  = 0;          //放大、缩小后缩略图尺寸
+			int tem_nThumbHeight = 0;
+
+			CRect   tem_rcPicRect; 
+			GetDlgItem(IDC_STA_PIC)->GetWindowRect(&tem_rcPicRect);
+			ScreenToClient(&tem_rcPicRect);
+
+
+			float   tem_fCurRatio = m_fCurRatio;
+
+			int     tem_nDrawX, tem_nDrawY, tem_nDrawW, tem_nDrawH;   //映射起点以及宽高
+
+			//放大后缩略图尺寸
+			tem_nThumbWidth  = (int)(tem_fCurRatio*tem_nImageWidth);
+			tem_nThumbHeight = (int)(tem_fCurRatio*tem_nImageHeight);
+			//1)缩放图尺寸<picture控件尺寸*****************************
+			//不能拖动
+
+			//2)缩放图宽<picture宽，且缩放图高>picture高
+			if (tem_nThumbWidth<tem_rcPicRect.Width() && tem_nThumbHeight>tem_rcPicRect.Height())
+			{
+				//图像显示区域
+				m_rcImageRect.left     = 0;
+				m_rcImageRect.right    = m_cvSrcImage.cols;
+
+				//源图显示区域的的真实高m_cvSrcImage.rows*(tem_nOffSetY*1.0/tem_nThumbHeight);
+				m_rcImageRect.top     += (int)(m_cvSrcImage.rows*(tem_nOffSetY*1.0/tem_nThumbHeight))/tem_nDragSpeed;
+				m_rcImageRect.bottom  += (int)(m_cvSrcImage.rows*(tem_nOffSetY*1.0/tem_nThumbHeight))/tem_nDragSpeed;
+				if (m_rcImageRect.top<=0)
+				{
+					m_rcImageRect.top    = 0;
+					m_rcImageRect.bottom = m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+				}
+				if (m_rcImageRect.bottom>=m_cvSrcImage.rows)
+				{
+					m_rcImageRect.bottom = m_cvSrcImage.rows;
+					m_rcImageRect.top    = m_cvSrcImage.rows - m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+				}
+			}
+			//3)缩放图宽>picctrl宽，且缩放图高<picctrl高
+			else if (tem_nThumbWidth>tem_rcPicRect.Width() && tem_nThumbHeight<tem_rcPicRect.Height())
+			{
+				//图像显示区域
+
+				m_rcImageRect.top      = 0;
+				m_rcImageRect.bottom   = m_cvSrcImage.rows;
+				//源图显示区域的真是宽m_cvSrcImage.cols*(tem_nOffSetX*1.0/tem_nThumbWidth)
+
+				m_rcImageRect.left    -= (int)(m_cvSrcImage.cols*(tem_nOffSetX*1.0/tem_nThumbWidth))/tem_nDragSpeed;
+				m_rcImageRect.right   -= (int)(m_cvSrcImage.cols*(tem_nOffSetX*1.0/tem_nThumbWidth))/tem_nDragSpeed;	
+				if (m_rcImageRect.left<=0)
+				{
+					m_rcImageRect.left  = 0;
+					m_rcImageRect.right = m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth);
+				}
+				if (m_rcImageRect.right>=m_cvSrcImage.cols)
+				{
+					m_rcImageRect.right = m_cvSrcImage.cols;
+					m_rcImageRect.left  = m_cvSrcImage.cols - m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth);
+				}
+			}
+			//4)缩放图宽>picctrl宽，且缩放图高>picctrl高
+			else if (tem_nThumbWidth>tem_rcPicRect.Width() && tem_nThumbHeight>tem_rcPicRect.Height())
+			{
+				//图像显示区域
+
+				m_rcImageRect.top     += (int)(m_cvSrcImage.rows*(tem_nOffSetY*1.0/tem_nThumbHeight))/tem_nDragSpeed;
+				m_rcImageRect.bottom  += (int)(m_cvSrcImage.rows*(tem_nOffSetY*1.0/tem_nThumbHeight))/tem_nDragSpeed;
+				if (m_rcImageRect.top<=0)
+				{
+					m_rcImageRect.top    = 0;
+					m_rcImageRect.bottom = m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+				}
+				if (m_rcImageRect.bottom>=m_cvSrcImage.rows)
+				{
+					m_rcImageRect.bottom = m_cvSrcImage.rows;
+					m_rcImageRect.top    = m_cvSrcImage.rows - m_cvSrcImage.rows*(tem_rcPicRect.Height()*1.0/tem_nThumbHeight);
+				}
+
+				m_rcImageRect.left    -= (int)(m_cvSrcImage.cols*(tem_nOffSetX*1.0/tem_nThumbWidth))/tem_nDragSpeed;
+				m_rcImageRect.right   -= (int)(m_cvSrcImage.cols*(tem_nOffSetX*1.0/tem_nThumbWidth))/tem_nDragSpeed;	
+				if (m_rcImageRect.left<=0)
+				{
+					m_rcImageRect.left  = 0;
+					m_rcImageRect.right = m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth);
+				}
+				if (m_rcImageRect.right>=m_cvSrcImage.cols)
+				{
+					m_rcImageRect.right = m_cvSrcImage.cols;
+					m_rcImageRect.left  = m_cvSrcImage.cols - m_cvSrcImage.cols*(tem_rcPicRect.Width()*1.0/tem_nThumbWidth);
+				}
+			}
+
+			Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+
+		}
+
+	}
+
+	CDialogEx::OnMouseMove(nFlags, point);
+}
+
+
+BOOL CSmartFilmUI::OnMouseWheel(UINT nFlags, short zDelta, CPoint pt)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	BOOL      tem_BRC;
+	CPoint    tem_ptCurPoint = pt;
+	if (zDelta>0)
+	{
+		//放大
+		tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, TRUE);
+		if(tem_BRC)
+		{
+			m_fCurRatio+=0.05;
+		}
+
+	}
+	else
+	{
+		//缩小
+		tem_BRC = Self_ZoomSize(m_cvSrcImage, m_fCurRatio, FALSE);
+		if(tem_BRC)
+		{
+			m_fCurRatio-=0.05;
+		}
+
+	}
+	if (m_BPaintLine)
+	{
+		Self_CreateLine();
+	}
+
+	return CDialogEx::OnMouseWheel(nFlags, zDelta, pt);
+}
+
+
+Mat CSmartFilmUI::Self_CropImage(Mat img, CRect showRect, CRect cropRect)
+{
+	CRect   tem_rcShow = showRect;
+	CRect   tem_rcCrop = cropRect;
+
+	if (tem_rcCrop.left==tem_rcCrop.right || tem_rcCrop.top==tem_rcCrop.bottom)
+	{
+		return img;
+	}
+
+	//起点超出图像
+	if (tem_rcCrop.left<tem_rcShow.left)
+	{
+		tem_rcCrop.left=tem_rcShow.left;
+	}
+	if (tem_rcCrop.top<tem_rcShow.top)
+	{
+		tem_rcCrop.top=tem_rcShow.top;
+	}
+	if (tem_rcCrop.right>tem_rcShow.right)
+	{
+		tem_rcCrop.right=tem_rcShow.right;
+	}
+	if (tem_rcCrop.bottom>tem_rcShow.bottom)
+	{
+		tem_rcCrop.bottom=tem_rcShow.bottom;
+	}
+
+	int    tem_nCropWidth  = tem_rcCrop.right-tem_rcCrop.left;    //裁切显示宽度
+	int    tem_nCropHeight = tem_rcCrop.bottom-tem_rcCrop.top;    //裁切显示高度
+	int    tem_nShowWidth  = tem_rcShow.right-tem_rcShow.left;    //显示宽度
+	int    tem_nShowHeight = tem_rcShow.bottom-tem_rcShow.top;    //显示高度
+
+	float  tem_fXPropertion     = (tem_rcCrop.left-tem_rcShow.left)*1.0/(tem_rcShow.right-tem_rcShow.left);   //起点坐标比例
+	float  tem_fYPropertion     = (tem_rcCrop.top-tem_rcShow.top)*1.0/(tem_rcShow.bottom-tem_rcShow.top);
+	float  tem_fWidthPropertion = tem_nCropWidth*1.0/tem_nShowWidth;          //裁切区域对显示区域的占比
+	float  tem_fHeightPropertion= tem_nCropHeight*1.0/tem_nShowHeight;
+
+	int    tem_nDstWidth   = img.cols* tem_fWidthPropertion;
+	int    tem_nDstHeith   = img.rows*tem_fHeightPropertion;
+
+	int    tem_nDstLeft    = img.cols*tem_fXPropertion;
+	int    tem_nDstTop     = img.rows*tem_fYPropertion;
+
+	CvRect  tem_crcDst;
+	tem_crcDst.x   = tem_nDstLeft;
+	tem_crcDst.y   = tem_nDstTop;
+	tem_crcDst.width  = tem_nDstWidth;
+	tem_crcDst.height =tem_nDstHeith;
+
+	Self_ClearPicCtrl();
+
+	if (m_BSlcRected)
+	{
+	}
+	Mat    tem_cvMidImage(img, tem_crcDst);
+
+	//终点超出图像
+	return tem_cvMidImage;
+}
+
+
+Mat CSmartFilmUI::Self_DrawRetangle(Mat img, CRect showRect, CRect cropRect, int linewidth, COLORREF linecolor)
+{
+	CRect   tem_rcShow = showRect;
+	CRect   tem_rcCrop = cropRect;
+
+	if (tem_rcCrop.left==tem_rcCrop.right || tem_rcCrop.top==tem_rcCrop.bottom)
+	{
+		return img;
+	}
+
+	//起点超出图像
+	if (tem_rcCrop.left<tem_rcShow.left)
+	{
+		tem_rcCrop.left=tem_rcShow.left;
+	}
+	if (tem_rcCrop.top<tem_rcShow.top)
+	{
+		tem_rcCrop.top=tem_rcShow.top;
+	}
+	if (tem_rcCrop.right>tem_rcShow.right)
+	{
+		tem_rcCrop.right=tem_rcShow.right;
+	}
+	if (tem_rcCrop.bottom>tem_rcShow.bottom)
+	{
+		tem_rcCrop.bottom=tem_rcShow.bottom;
+	}
+
+	int    tem_nCropWidth  = tem_rcCrop.right-tem_rcCrop.left;    //裁切显示宽度
+	int    tem_nCropHeight = tem_rcCrop.bottom-tem_rcCrop.top;    //裁切显示高度
+	int    tem_nShowWidth  = tem_rcShow.right-tem_rcShow.left;    //显示宽度
+	int    tem_nShowHeight = tem_rcShow.bottom-tem_rcShow.top;    //显示高度
+
+	float  tem_fXPropertion     = (tem_rcCrop.left-tem_rcShow.left)*1.0/(tem_rcShow.right-tem_rcShow.left);   //起点坐标比例
+	float  tem_fYPropertion     = (tem_rcCrop.top-tem_rcShow.top)*1.0/(tem_rcShow.bottom-tem_rcShow.top);
+	float  tem_fWidthPropertion = tem_nCropWidth*1.0/tem_nShowWidth;          //裁切区域对显示区域的占比
+	float  tem_fHeightPropertion= tem_nCropHeight*1.0/tem_nShowHeight;
+
+	int    tem_nDstWidth   = img.cols* tem_fWidthPropertion;
+	int    tem_nDstHeith   = img.rows*tem_fHeightPropertion;
+
+	int    tem_nDstLeft    = img.cols*tem_fXPropertion;
+	int    tem_nDstTop     = img.rows*tem_fYPropertion;
+
+	CvRect  tem_crcDst;
+	tem_crcDst.x      = tem_nDstLeft;
+	tem_crcDst.y      = tem_nDstTop;
+	tem_crcDst.width  = tem_nDstWidth;
+	tem_crcDst.height =tem_nDstHeith;
+
+	Self_ClearPicCtrl();
+
+	if (m_BSlcRected)
+	{
+	}
+	Mat    tem_cvMidImage(img);
+	//获取画框颜色
+	int  tem_nRed   = GetRValue(linecolor);
+	int  tem_nGreen = GetGValue(linecolor);
+	int  tem_nBlue  = GetBValue(linecolor);
+	rectangle(tem_cvMidImage, tem_crcDst, Scalar(tem_nBlue, tem_nGreen, tem_nRed), linewidth, 8, 0);
+
+	//终点超出图像
+	return tem_cvMidImage;
+}
+
+
+Mat CSmartFilmUI::Self_DrawArrow(Mat img, CRect showRect, CRect cropRect, int linewidth, COLORREF linecolor)
+{
+	CRect   tem_rcShow = showRect;
+	CRect   tem_rcCrop = cropRect;
+	int    tem_nCropWidth  = tem_rcCrop.right-tem_rcCrop.left;    //裁切显示宽度
+	int    tem_nCropHeight = tem_rcCrop.bottom-tem_rcCrop.top;    //裁切显示高度
+	int    tem_nShowWidth  = tem_rcShow.right-tem_rcShow.left;    //显示宽度
+	int    tem_nShowHeight = tem_rcShow.bottom-tem_rcShow.top;    //显示高度
+
+	if (tem_rcCrop.left==tem_rcCrop.right || tem_rcCrop.top==tem_rcCrop.bottom)
+	{
+		return img;
+	}
+
+	float  tem_fXPropertion     = (tem_rcCrop.left-tem_rcShow.left)*1.0/(tem_rcShow.right-tem_rcShow.left);   //起点坐标比例
+	float  tem_fYPropertion     = (tem_rcCrop.top-tem_rcShow.top)*1.0/(tem_rcShow.bottom-tem_rcShow.top);
+	int    tem_nDstWidth   = img.cols* tem_fXPropertion;
+	int    tem_nDstHeith   = img.rows*tem_fYPropertion;
+	cv::Point  tem_ptNewOri(tem_nDstWidth, tem_nDstHeith);
+
+	tem_fXPropertion     = (tem_rcCrop.right-tem_rcShow.left)*1.0/(tem_rcShow.right-tem_rcShow.left);         //终点坐标比例
+	tem_fYPropertion     = (tem_rcCrop.bottom-tem_rcShow.top)*1.0/(tem_rcShow.bottom-tem_rcShow.top);
+	tem_nDstWidth   = img.cols* tem_fXPropertion;
+	tem_nDstHeith   = img.rows*tem_fYPropertion;
+	cv::Point  tem_ptNewEnd(tem_nDstWidth, tem_nDstHeith);
+
+
+	Self_ClearPicCtrl();
+
+	Mat    tem_cvMidImage(img);
+	int  tem_nRed   = GetRValue(linecolor);
+	int  tem_nGreen = GetGValue(linecolor);
+	int  tem_nBlue  = GetBValue(linecolor);
+
+
+	tem_cvMidImage = drawArrow(img, tem_ptNewOri, tem_ptNewEnd, m_nArrowLen, m_nArrowAngle, Scalar(tem_nBlue, tem_nGreen, tem_nRed), m_nLineWidth, CV_AA);
+
+	return tem_cvMidImage;
+}
+
+
+Mat CSmartFilmUI::drawArrow(Mat img, cv::Point pStart, cv::Point pEnd, int len , int alpha , cv::Scalar& color, int thickness , int lineType)
+{
+	const double tem_PI = 3.1415926;
+
+	cv::Point arrow;
+	double angle = atan2((double)(pStart.y - pEnd.y), (double)(pStart.x - pEnd.x));
+	line(img, pStart, pEnd, color, thickness, lineType);
+
+	//计算箭角边的另一端的端点位置（上面的还是下面的要看箭头的指向，也就是pStart和pEnd的位置） 
+	arrow.x = pEnd.x + len * cos(angle + tem_PI * alpha / 180);
+	arrow.y = pEnd.y + len * sin(angle + tem_PI * alpha / 180);
+	line(img, pEnd, arrow, color, thickness, lineType);
+
+	arrow.x = pEnd.x + len * cos(angle - tem_PI * alpha / 180);
+	arrow.y = pEnd.y + len * sin(angle - tem_PI * alpha / 180);
+	line(img, pEnd, arrow, color, thickness, lineType);
+
+	return img;
 }

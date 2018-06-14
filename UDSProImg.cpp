@@ -63,6 +63,11 @@ BEGIN_MESSAGE_MAP(CUDSProImg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_BMARKIT, &CUDSProImg::OnBnClickedBtnBmarkit)
 	ON_BN_CLICKED(IDC_BTN_BARROW, &CUDSProImg::OnBnClickedBtnBarrow)
 	ON_BN_CLICKED(IDC_BTN_BTEXT, &CUDSProImg::OnBnClickedBtnBtext)
+	ON_BN_CLICKED(IDC_BTN_BCROP, &CUDSProImg::OnBnClickedBtnBcrop)
+	ON_BN_CLICKED(IDC_BTN_BINVERT, &CUDSProImg::OnBnClickedBtnBinvert)
+	ON_BN_CLICKED(IDC_BTN_BSHARP, &CUDSProImg::OnBnClickedBtnBsharp)
+	ON_BN_CLICKED(IDC_BTN_SURE, &CUDSProImg::OnBnClickedBtnSure)
+	ON_BN_CLICKED(IDC_BTN_UNSURE, &CUDSProImg::OnBnClickedBtnUnsure)
 END_MESSAGE_MAP()
 
 
@@ -280,66 +285,78 @@ void CUDSProImg::Self_SetCtrl(int index)
 void CUDSProImg::OnBnClickedBtnBsave()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 0, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBbackout()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 1, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBrest()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 2, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBfitscreen()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 3, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBorisize()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 4, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBlrotate()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 5, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBrrotate()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 6, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBrotate180()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 7, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBlmirro()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 8, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBvmirro()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 9, 0);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBrotateself()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 10, 0);
+	m_nOperation = 10;
 }
 
 
@@ -347,6 +364,10 @@ void CUDSProImg::OnCustomdrawSlidBbri(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
+	m_nBrit   = m_slidCBright.GetPos();
+	m_staBrit = m_nBrit;
+	UpdateData(FALSE);
+
 	*pResult = 0;
 }
 
@@ -354,6 +375,9 @@ void CUDSProImg::OnCustomdrawSlidBbri(NMHDR *pNMHDR, LRESULT *pResult)
 void CUDSProImg::OnReleasedcaptureSlidBbri(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 11, m_nBrit);
+	m_nOperation = 11;
+
 	*pResult = 0;
 }
 
@@ -362,6 +386,10 @@ void CUDSProImg::OnCustomdrawSlidBcontrast(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
+	m_nCtst   = m_slidCContrst.GetPos();
+	m_staCtst = m_nCtst;
+	UpdateData(FALSE);
+
 	*pResult = 0;
 }
 
@@ -369,6 +397,9 @@ void CUDSProImg::OnCustomdrawSlidBcontrast(NMHDR *pNMHDR, LRESULT *pResult)
 void CUDSProImg::OnReleasedcaptureSlidBcontrast(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 12, m_nCtst);
+	m_nOperation = 12;
+
 	*pResult = 0;
 }
 
@@ -377,6 +408,10 @@ void CUDSProImg::OnCustomdrawSlidBgama(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	LPNMCUSTOMDRAW pNMCD = reinterpret_cast<LPNMCUSTOMDRAW>(pNMHDR);
 	// TODO: 在此添加控件通知处理程序代码
+	m_nGama   = m_slidCGama.GetPos();
+	m_staGama = (float)m_nGama*1.0/100;
+	UpdateData(FALSE);
+
 	*pResult = 0;
 }
 
@@ -384,6 +419,9 @@ void CUDSProImg::OnCustomdrawSlidBgama(NMHDR *pNMHDR, LRESULT *pResult)
 void CUDSProImg::OnReleasedcaptureSlidBgama(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 13, m_nGama);
+	m_nOperation = 13;
+
 	*pResult = 0;
 }
 
@@ -391,16 +429,221 @@ void CUDSProImg::OnReleasedcaptureSlidBgama(NMHDR *pNMHDR, LRESULT *pResult)
 void CUDSProImg::OnBnClickedBtnBmarkit()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 14, 0);
+	m_nOperation = 14;
 }
 
 
 void CUDSProImg::OnBnClickedBtnBarrow()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 15, 0);
+	m_nOperation = 15;
 }
 
 
 void CUDSProImg::OnBnClickedBtnBtext()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 16, 0);
+	m_nOperation = 16;
+}
+
+
+void CUDSProImg::OnBnClickedBtnBcrop()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 17, 0);
+}
+
+
+void CUDSProImg::OnBnClickedBtnBinvert()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 18, 0);
+}
+
+
+void CUDSProImg::OnBnClickedBtnBsharp()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 19, 0);
+}
+
+
+void CUDSProImg::Self_ResetSlider(int mode)
+{
+	if (mode == 0)
+	{
+		m_slidCBright.SetPos(0);
+	} 
+	else if (mode == 1)
+	{
+		m_slidCContrst.SetPos(0);
+	} 
+	else
+	{
+		m_slidCGama.SetPos(100);
+	}
+	GetDlgItem(IDC_BTN_SURE)->ShowWindow(SW_HIDE);
+	GetDlgItem(IDC_BTN_UNSURE)->ShowWindow(SW_HIDE);
+}
+
+
+BOOL CUDSProImg::Self_DisableCtrl(int index)
+{
+	switch(index)
+	{
+	case 0:
+		GetDlgItem(IDC_BTN_BSAVE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BBACKOUT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BREST)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BFITSCREEN)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BORISIZE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BLROTATE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BRROTATE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BROTATE180)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BLMIRRO)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BVMIRRO)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BROTATESELF)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BCROP)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BINVERT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BSHARP)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_SURE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_SURE)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_BTN_UNSURE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_UNSURE)->ShowWindow(SW_NORMAL);
+
+		//标注项控件状态
+		GetDlgItem(IDC_BTN_BMARKIT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BARROW)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BTEXT)->EnableWindow(FALSE);
+		m_nNote = 0;
+		Self_SetCtrl(m_nNote);
+		break;
+	case 1:
+		GetDlgItem(IDC_BTN_BSAVE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BBACKOUT)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BREST)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BFITSCREEN)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BORISIZE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BLROTATE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BRROTATE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BROTATE180)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BLMIRRO)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BVMIRRO)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BROTATESELF)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BCROP)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BINVERT)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BSHARP)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_SURE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_SURE)->ShowWindow(SW_HIDE);
+		GetDlgItem(IDC_BTN_UNSURE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_UNSURE)->ShowWindow(SW_HIDE);
+		GetDlgItem(IDC_SLID_BBRI)->EnableWindow(TRUE);
+		GetDlgItem(IDC_SLID_BCONTRAST)->EnableWindow(TRUE);
+		GetDlgItem(IDC_SLID_BGAMA)->EnableWindow(TRUE);
+
+		//标注项控件状态
+		GetDlgItem(IDC_BTN_BMARKIT)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BARROW)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_BTEXT)->EnableWindow(TRUE);
+		m_nNote = 0;
+		Self_SetCtrl(m_nNote);
+		break;
+	case 2:
+		GetDlgItem(IDC_BTN_BSAVE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BBACKOUT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BREST)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BFITSCREEN)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BORISIZE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BLROTATE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BRROTATE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BROTATE180)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BLMIRRO)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BVMIRRO)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BROTATESELF)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BCROP)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BINVERT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BSHARP)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_SURE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_SURE)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_BTN_UNSURE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_UNSURE)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_SLID_BBRI)->EnableWindow(FALSE);
+		GetDlgItem(IDC_SLID_BCONTRAST)->EnableWindow(FALSE);
+		GetDlgItem(IDC_SLID_BGAMA)->EnableWindow(FALSE);
+
+		//标注项控件状态
+		GetDlgItem(IDC_BTN_BMARKIT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BARROW)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BTEXT)->EnableWindow(FALSE);
+		m_nNote = 0;
+		Self_SetCtrl(m_nNote);
+		break;
+	case 3:
+		GetDlgItem(IDC_BTN_BSAVE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BBACKOUT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BREST)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BFITSCREEN)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BORISIZE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BLROTATE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BRROTATE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BROTATE180)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BLMIRRO)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BVMIRRO)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BROTATESELF)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BCROP)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BINVERT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_BSHARP)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BTN_SURE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_SURE)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_BTN_UNSURE)->EnableWindow(TRUE);
+		GetDlgItem(IDC_BTN_UNSURE)->ShowWindow(SW_NORMAL);
+
+		GetDlgItem(IDC_SLID_BBRI)->EnableWindow(FALSE);
+		GetDlgItem(IDC_SLID_BCONTRAST)->EnableWindow(FALSE);
+		GetDlgItem(IDC_SLID_BGAMA)->EnableWindow(FALSE);
+		break;
+	}
+	return 0;
+}
+
+
+void CUDSProImg::OnBnClickedBtnSure()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (m_nOperation == 11 || m_nOperation == 12 || m_nOperation == 13)
+	{
+		m_slidCBright.SetPos(0);
+		m_slidCContrst.SetPos(0);
+		m_slidCGama.SetPos(100);
+	}
+	else if (m_nOperation == 14 || m_nOperation == 15 || m_nOperation == 16)
+	{
+		m_nNote = 0;
+	}
+
+	Self_DisableCtrl(1);
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 20, m_nOperation);
+}
+
+
+void CUDSProImg::OnBnClickedBtnUnsure()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (m_nOperation == 11 || m_nOperation == 12 || m_nOperation == 13)
+	{
+		m_slidCBright.SetPos(0);
+		m_slidCContrst.SetPos(0);
+		m_slidCGama.SetPos(100);
+	}
+	else if (m_nOperation == 14 || m_nOperation == 15 || m_nOperation == 16)
+	{
+		m_nNote = 0;
+	}
+
+	Self_DisableCtrl(1);
+
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 21, m_nOperation);
 }

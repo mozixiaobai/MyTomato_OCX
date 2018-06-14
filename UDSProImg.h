@@ -78,4 +78,11 @@ public:
 	afx_msg void OnBnClickedBtnBmarkit();
 	afx_msg void OnBnClickedBtnBarrow();
 	afx_msg void OnBnClickedBtnBtext();
+	afx_msg void OnBnClickedBtnBcrop();
+	afx_msg void OnBnClickedBtnBinvert();
+	afx_msg void OnBnClickedBtnBsharp();
+	void Self_ResetSlider(int mode);
+	BOOL Self_DisableCtrl(int index);
+	afx_msg void OnBnClickedBtnSure();
+	afx_msg void OnBnClickedBtnUnsure();
 };

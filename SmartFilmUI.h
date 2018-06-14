@@ -23,6 +23,7 @@
 #include <vector>
 
 using namespace cv;
+using namespace std;
 using namespace pdflib;
 
 
@@ -82,6 +83,7 @@ public:
 	CString m_strTabImg;       //Tab控件切换时的显示图像
 	CString m_strFilesPath;
 	CString m_strBufferImgPath;
+	
 
 
 	int m_lReturnCode;       //返回码
@@ -160,7 +162,11 @@ public:
 	int m_nThumbWidth;    
 	int m_nThumbHeight;
 	int m_nRSlcIndex;      //右键选中索引
-
+	CPoint m_ptDragOri;
+	CPoint m_ptDragEnd;
+	int m_nLineMode;
+	int m_nAngleCount;
+	int m_nNoteCount;
 
 	long m_lLeftSite;       //裁切框坐标
 	long m_lTopSite;
@@ -178,6 +184,12 @@ public:
 	BOOL m_BShowPicCtrl;
 	BOOL m_BPaintLine;
 	BOOL m_BNoSaved;              //是否保存
+	BOOL m_BOriSize;
+	BOOL m_BSelectTab;          //图像编辑的部分状态禁止切换标签
+	BOOL m_BLButtonDown;
+	BOOL m_BSlcRect;
+	BOOL m_BLabel;
+	BOOL m_BSlcRected;
 
 
 	Mat m_cvSrcImage;
@@ -200,6 +212,11 @@ public:
 	int m_nOffsetX, m_nOffsetY;
 	int m_nShowWidth;         //初始化显示宽度
 	int m_nShowHeight;        //初始化显示高度
+	int m_nArrowLen;         //箭头倒角长度
+	int m_nArrowAngle;       //箭头倒角角度
+	int m_nLineWidth;
+	CPoint m_ptOri;
+	CPoint m_ptEnd;
 
 	float      m_fCurRatio;           //当前缩放比例
 	float      m_fPI;                  //圆周率常量
@@ -215,11 +232,21 @@ public:
 
 	CMenu m_ListMenu;
 
+	CWnd* pWnd;
+
+	COLORREF    m_refLineColor;      //线以及字体的颜色
+	CPoint      m_ptNoteSite;        //上一次位子标注的位置
+
 	//调焦
 	int       m_nVidoeMode;        //MJPG/YUY2
 	int       m_nFocusValue;       //当前焦点值
 	int       m_nDevIndex;         //当前打开设备索引
-	HINSTANCE m_hDllInst;          //加载调焦dll     
+	HINSTANCE m_hDllInst;          //加载调焦dll 
+
+
+	int        m_nLastBrit;          //上次调整的亮度值
+	int        m_nLastCtst;          //上次调整的对比度值
+	int        m_nLastCGama;
 
 
 
@@ -293,4 +320,24 @@ public:
 	void Self_ReplaceImage(int thumbwidth, int thumbheight, int item);
 	void Self_ClearPicCtrl(void);
 	CStatic m_conPicCtrl;
+protected:
+	afx_msg LRESULT OnImgprocess(WPARAM wParam, LPARAM lParam);
+public:
+	BOOL Self_ZoomSize(Mat src, float ratio, bool zoommark);
+	Mat ImageRotate(Mat img, int angle);
+	void Self_SaveLastImg(void);
+	Mat ImageMirror(Mat img, bool mirrormark);
+	Mat ImageInvert(Mat img);
+	Mat ImageSharp(Mat img);
+	Mat BrightAndContrast(Mat img, int bright, int contrast);
+	Mat ImageGamma(Mat img, int gama);
+	void Self_CreateLine(void);
+	afx_msg void OnLButtonDown(UINT nFlags, CPoint point);
+	afx_msg void OnLButtonUp(UINT nFlags, CPoint point);
+	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
+	afx_msg BOOL OnMouseWheel(UINT nFlags, short zDelta, CPoint pt);
+	Mat Self_CropImage(Mat img, CRect showRect, CRect cropRect);
+	Mat Self_DrawRetangle(Mat img, CRect showRect, CRect cropRect, int linewidth, COLORREF linecolor);
+	Mat Self_DrawArrow(Mat img, CRect showRect, CRect cropRect, int linewidth, COLORREF linecolor);
+	Mat drawArrow(Mat img, cv::Point pStart, cv::Point pEnd, int len , int alpha , cv::Scalar& color, int thickness , int lineType);
 };
