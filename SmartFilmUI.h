@@ -190,6 +190,11 @@ public:
 	BOOL m_BSlcRect;
 	BOOL m_BLabel;
 	BOOL m_BSlcRected;
+	BOOL m_BBold;             //加粗
+	BOOL m_BItalic;           //斜体
+	int         m_nFontSize;         //字体大小
+	CString     m_strFont;           //字体
+	CString     m_strInfo;           //添加信息
 
 
 	Mat m_cvSrcImage;
@@ -340,4 +345,7 @@ public:
 	Mat Self_DrawRetangle(Mat img, CRect showRect, CRect cropRect, int linewidth, COLORREF linecolor);
 	Mat Self_DrawArrow(Mat img, CRect showRect, CRect cropRect, int linewidth, COLORREF linecolor);
 	Mat drawArrow(Mat img, cv::Point pStart, cv::Point pEnd, int len , int alpha , cv::Scalar& color, int thickness , int lineType);
+	Mat Self_AddText(Mat src, CRect showRect, CRect cropRect, CString textinfo, COLORREF color, CString font, int fontsize, bool bold, bool italic);
+	void putTextEx(Mat& dst, const char* str, cv::Point org, Scalar color, int fontSize, const char* fn, bool italic, bool underline, bool bold);
+	void GetStringSize(HDC hDC, const char* str, int* w, int* h);
 };

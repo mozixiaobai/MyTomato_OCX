@@ -9,6 +9,7 @@
 
 CString  g_strProXmlPath;        //透射稿默认模板
 CString  g_strDocXmlPath;        //反射稿默认模板
+CString  g_strEditInfo;
 std::vector<CString> g_vcRes;
 int g_nGrayValue[18][2]={{169,42}, {100,32}, {106,33}, {112,34}, {119,35}, {125,36}, {131,37}, {137,38}, {144,39}, {150,40},{156,41}, {162,42}, {169,43}, {175,44}, {181,45}, {187,46}, {194,47}, {200,48}};
 HWND g_hMainHwnd;
@@ -154,6 +155,10 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_BSlcRect = FALSE;
 	m_BLabel = FALSE;
 	m_BSlcRected = FALSE;
+	m_BBold = FALSE;
+	m_BItalic = FALSE;
+	m_nFontSize   =120;
+	m_strFont     = _T("宋体");
 
 
 	g_hMainHwnd = this->m_hWnd;
@@ -4149,13 +4154,63 @@ afx_msg LRESULT CSmartFilmUI::OnImgprocess(WPARAM wParam, LPARAM lParam)
 		}
 		break;
 	case 14:
-		//标注
+		//画框
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败"), _T("UDS"), MB_OK);
+			break;
+		}
+		m_dlgPro.Self_SetCtrl(1);
+		m_dlgPro.Self_DisableCtrl(3); 
+
+		m_nLineMode = 0;
+		m_BNoSaved = TRUE;
+		m_BLabel   = TRUE;
+		Self_ResetImageRect();
+		//重新加载图像
+		Self_ClearPicCtrl();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		m_ptNoteSite.x = 0;
+		m_ptNoteSite.y = 0;
 		break;
 	case 15:
-		//画线
+		//画箭头
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败"), _T("UDS"), MB_OK);
+			break;
+		}
+		m_dlgPro.Self_SetCtrl(1);
+		m_dlgPro.Self_DisableCtrl(3); 
+		m_nLineMode = 1;
+		m_BNoSaved = TRUE;
+		m_BLabel   = TRUE;
+		Self_ResetImageRect();
+		//重新加载图像
+		Self_ClearPicCtrl();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		m_ptNoteSite.x = 0;
+		m_ptNoteSite.y = 0;
 		break;
 	case 16:
 		//文本
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败"), _T("UDS"), MB_OK);
+			break;
+		}
+		m_dlgPro.Self_SetCtrl(2);
+		m_dlgPro.Self_DisableCtrl(3);
+		m_nLineMode = 3;
+		m_BNoSaved = TRUE;
+		m_BLabel   = TRUE;
+		Self_ResetImageRect();
+		//重新加载图像
+		Self_ClearPicCtrl();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
 		break;
 	case 17:
 		//裁切
@@ -4316,7 +4371,93 @@ afx_msg LRESULT CSmartFilmUI::OnImgprocess(WPARAM wParam, LPARAM lParam)
 		m_ptNoteSite.x = 0;
 		m_ptNoteSite.y = 0;
 		break;
+	case 22:
+		//设置线宽
+		m_nLineWidth = tem_nInfo;
+		break;
+	case 23:
+		//设置颜色
+		m_refLineColor = tem_nInfo;
+		break;
+	case 24:
+		//添加文本
+		m_cvSrcImage.copyTo(m_cvLastImg);
+		m_cvDstImage = Self_AddText(m_cvSrcImage, m_rcImageShow, m_rcImageCrop, g_strEditInfo, m_refLineColor, m_strFont, m_nFontSize, m_BBold, m_BItalic);
+		m_nNoteCount++;
+		m_cvDstImage.copyTo(m_cvSrcImage);
+		m_cvSrcImage.copyTo(m_cvNextImg);
+		Self_ResetImageRect();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
+		Self_SaveLastImg();
+		m_ptNoteSite.x = 0;
+		m_ptNoteSite.y = 0;
+		break;
+	case 25:
+		//加粗
+		if (tem_nInfo == 0)
+		{
+			m_BBold = FALSE;
+		}
+		else
+		{
+			m_BBold = TRUE;
+		}
+		break;
+	case 26:
+		//斜体
+		if (tem_nInfo == 0)
+		{
+			m_BItalic = FALSE;
+		} 
+		else
+		{
+			m_BItalic = TRUE;
+		}
+		break;
+	case 27:
+		//字体
+		switch(tem_nInfo)
+		{
+		case 0:
+			m_strFont = _T("Arial");
+			break;
+		case 1:
+			m_strFont = _T("Calibri");
+			break;
+		case 2:
+			m_strFont = _T("Times New Roman");
+			break;
+		case 3:
+			m_strFont = _T("宋体");
+			break;
+		case 4:
+			m_strFont = _T("楷体");
+			break;
+		case 5:
+			m_strFont = _T("仿宋");
+			break;
+		case 6:
+			m_strFont = _T("黑体");
+			break;
+		case 7:
+			m_strFont = _T("隶书");
+			break;
+		case 8:
+			m_strFont = _T("微软雅黑");
+			break;
+		case 9:
+			m_strFont = _T("新宋体");
+			break;
+		}
+		break;
+	case 28:
+		//字体大小
+		m_nFontSize = tem_nInfo;
+		break;
 	}
+	
+	
 	
 	return 0;
 }
@@ -7579,4 +7720,194 @@ Mat CSmartFilmUI::drawArrow(Mat img, cv::Point pStart, cv::Point pEnd, int len ,
 	line(img, pEnd, arrow, color, thickness, lineType);
 
 	return img;
+}
+
+
+Mat CSmartFilmUI::Self_AddText(Mat src, CRect showRect, CRect cropRect, CString textinfo, COLORREF color, CString font, int fontsize, bool bold, bool italic)
+{
+	CRect   tem_rcShow = showRect;
+	CRect   tem_rcCrop = cropRect;
+	int    tem_nCropWidth  = tem_rcCrop.right-tem_rcCrop.left;    //裁切显示宽度
+	int    tem_nCropHeight = tem_rcCrop.bottom-tem_rcCrop.top;    //裁切显示高度
+	int    tem_nShowWidth  = tem_rcShow.right-tem_rcShow.left;    //显示宽度
+	int    tem_nShowHeight = tem_rcShow.bottom-tem_rcShow.top;    //显示高度
+
+	float  tem_fXPropertion     = (tem_rcCrop.left-tem_rcShow.left)*1.0/(tem_rcShow.right-tem_rcShow.left);   //起点坐标比例
+	float  tem_fYPropertion     = (tem_rcCrop.top-tem_rcShow.top)*1.0/(tem_rcShow.bottom-tem_rcShow.top);
+	int    tem_nDstWidth   = src.cols* tem_fXPropertion;
+	int    tem_nDstHeith   = src.rows*tem_fYPropertion;
+
+
+	wchar_t*    tem_wsInfo = textinfo.GetBuffer();                //内容
+	int         tem_nRed   = GetRValue(color);                    //颜色
+	int         tem_nGreen = GetGValue(color);
+	int         tem_nBlue  = GetBValue(color);
+	wchar_t*    tem_wsFont = m_strFont.GetBuffer();
+	int         tem_nSize  = fontsize;
+
+
+	int   iSize;
+	char* pszMultiByte;
+	char* pszFont;
+
+	//返回接受字符串所需缓冲区的大小，已经包含字符结尾符'\0'
+	iSize = WideCharToMultiByte(CP_ACP, 0, tem_wsInfo, -1, NULL, 0, NULL, NULL); 
+	pszMultiByte = (char*)malloc(iSize*sizeof(char)); //不需要 pszMultiByte = (char*)malloc(iSize*sizeof(char)+1);
+	WideCharToMultiByte(CP_ACP, 0, tem_wsInfo, -1, pszMultiByte, iSize, NULL, NULL);
+
+	iSize = WideCharToMultiByte(CP_ACP, 0, tem_wsFont, -1, NULL, 0, NULL, NULL); 
+	pszFont = (char*)malloc(iSize*sizeof(char)); //不需要 pszMultiByte = (char*)malloc(iSize*sizeof(char)+1);
+	WideCharToMultiByte(CP_ACP, 0, tem_wsFont, -1, pszFont, iSize, NULL, NULL);
+
+	putTextEx(src, pszMultiByte, cv::Point(tem_nDstWidth, tem_nDstHeith), Scalar(tem_nBlue, tem_nGreen, tem_nRed), tem_nSize, pszFont, m_BItalic, false, m_BBold);    //Scalar(B, G, R)
+
+	return src;
+}
+
+
+void CSmartFilmUI::putTextEx(Mat& dst, const char* str, cv::Point org, Scalar color, int fontSize, const char* fn, bool italic, bool underline, bool bold)
+{
+	CV_Assert(dst.data != 0 && (dst.channels() == 1 || dst.channels() == 3));
+
+	int x, y, r, b;
+	if (org.x > dst.cols || org.y > dst.rows) return;
+	x = org.x < 0 ? -org.x : 0;
+	y = org.y < 0 ? -org.y : 0;
+
+	LOGFONTA lf;
+	lf.lfHeight = -fontSize;
+	lf.lfWidth = 0;
+	lf.lfEscapement = 0;
+	lf.lfOrientation = 0;
+	//	lf.lfWeight = 5;                      //重量即为粗细0~1000，正常情况为400，加粗为700
+	if (bold)
+	{
+		lf.lfWeight = 700;
+	}
+	else
+	{
+		lf.lfWeight = 400;
+	}
+
+	lf.lfItalic = italic;   //斜体
+	lf.lfUnderline = underline; //下划线
+	lf.lfStrikeOut = 0;
+	lf.lfCharSet = DEFAULT_CHARSET;
+	lf.lfOutPrecision = 0;
+	lf.lfClipPrecision = 0;
+	lf.lfQuality = PROOF_QUALITY;
+	lf.lfPitchAndFamily = 0;
+	strcpy_s(lf.lfFaceName, fn);
+
+	HFONT hf = CreateFontIndirectA(&lf);
+	HDC hDC = CreateCompatibleDC(0);
+	HFONT hOldFont = (HFONT)SelectObject(hDC, hf);
+
+	int strBaseW = 0, strBaseH = 0;
+	int singleRow = 0;
+	char buf[1 << 12];
+	strcpy_s(buf, str);
+	char *bufT[1 << 12];  // 这个用于分隔字符串后剩余的字符，可能会超出。
+	//处理多行
+	{
+		int nnh = 0;
+		int cw, ch;
+
+		const char* ln = strtok_s(buf, "\n",bufT);
+		while (ln != 0)
+		{
+			GetStringSize(hDC, ln, &cw, &ch);
+			strBaseW = max(strBaseW, cw);
+			strBaseH = max(strBaseH, ch);
+
+			ln = strtok_s(0, "\n",bufT);
+			nnh++;
+		}
+		singleRow = strBaseH;
+		strBaseH *= nnh;
+	}
+
+	if (org.x + strBaseW < 0 || org.y + strBaseH < 0)
+	{
+		SelectObject(hDC, hOldFont);
+		DeleteObject(hf);
+		DeleteObject(hDC);
+		return;
+	}
+
+	r = org.x + strBaseW > dst.cols ? dst.cols - org.x - 1 : strBaseW - 1;
+	b = org.y + strBaseH > dst.rows ? dst.rows - org.y - 1 : strBaseH - 1;
+	org.x = org.x < 0 ? 0 : org.x;
+	org.y = org.y < 0 ? 0 : org.y;
+
+	BITMAPINFO bmp = { 0 };
+	BITMAPINFOHEADER& bih = bmp.bmiHeader;
+	int strDrawLineStep = strBaseW * 3 % 4 == 0 ? strBaseW * 3 : (strBaseW * 3 + 4 - ((strBaseW * 3) % 4));
+
+	bih.biSize = sizeof(BITMAPINFOHEADER);
+	bih.biWidth = strBaseW;
+	bih.biHeight = strBaseH;
+	bih.biPlanes = 1;
+	bih.biBitCount = 24;
+	bih.biCompression = BI_RGB;
+	bih.biSizeImage = strBaseH * strDrawLineStep;
+	bih.biClrUsed = 0;
+	bih.biClrImportant = 0;
+
+	void* pDibData = 0;
+	HBITMAP hBmp = CreateDIBSection(hDC, &bmp, DIB_RGB_COLORS, &pDibData, 0, 0);
+
+	CV_Assert(pDibData != 0);
+	HBITMAP hOldBmp = (HBITMAP)SelectObject(hDC, hBmp);
+
+	//color.val[2], color.val[1], color.val[0]
+	SetTextColor(hDC, RGB(255, 255, 255));
+	SetBkColor(hDC, 0);
+	//SetStretchBltMode(hDC, COLORONCOLOR);
+
+	strcpy_s(buf, str);
+	const char* ln = strtok_s(buf, "\n",bufT);
+	int outTextY = 0;
+	while (ln != 0)
+	{
+		TextOutA(hDC, 0, outTextY, ln, strlen(ln));
+		outTextY += singleRow;
+		ln = strtok_s(0, "\n",bufT);
+	}
+	uchar* dstData = (uchar*)dst.data;
+	int dstStep = dst.step / sizeof(dstData[0]);
+	unsigned char* pImg = (unsigned char*)dst.data + org.x * dst.channels() + org.y * dstStep;
+	unsigned char* pStr = (unsigned char*)pDibData + x * 3;
+	for (int tty = y; tty <= b; ++tty)
+	{
+		unsigned char* subImg = pImg + (tty - y) * dstStep;
+		unsigned char* subStr = pStr + (strBaseH - tty - 1) * strDrawLineStep;
+		for (int ttx = x; ttx <= r; ++ttx)
+		{
+			for (int n = 0; n < dst.channels(); ++n){
+				double vtxt = subStr[n] / 255.0;
+				int cvv = vtxt * color.val[n] + (1 - vtxt) * subImg[n];
+				subImg[n] = cvv > 255 ? 255 : (cvv < 0 ? 0 : cvv);
+			}
+
+			subStr += 3;
+			subImg += dst.channels();
+		}
+	}
+
+
+	SelectObject(hDC, hOldBmp);
+	SelectObject(hDC, hOldFont);
+	DeleteObject(hf);
+	DeleteObject(hBmp);
+	DeleteDC(hDC);
+}
+
+
+void CSmartFilmUI::GetStringSize(HDC hDC, const char* str, int* w, int* h)
+{
+	SIZE size;
+	GetTextExtentPoint32A(hDC, str, strlen(str), &size);
+	if (w != 0) *w = size.cx;
+	if (h != 0) *h = size.cy;
 }

@@ -8,6 +8,7 @@
 
 
 extern HWND g_hMainHwnd;
+extern CString g_strEditInfo;
 
 // CUDSProImg 对话框
 
@@ -20,6 +21,7 @@ CUDSProImg::CUDSProImg(CWnd* pParent /*=NULL*/)
 	m_staBrit = 0;
 	m_staCtst = 0;
 	m_staGama = 0.0f;
+	m_editInfo = _T("");
 }
 
 CUDSProImg::~CUDSProImg()
@@ -39,6 +41,7 @@ void CUDSProImg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MFCCOLOR_BCOLOR, m_conColor);
 	DDX_Control(pDX, IDC_CMB_BFONTSIZE, m_conFontSize);
 	DDX_Control(pDX, IDC_CMB_CFONT, m_conFont);
+	DDX_Text(pDX, IDC_EDIT_BTEXTINFO, m_editInfo);
 }
 
 
@@ -68,6 +71,14 @@ BEGIN_MESSAGE_MAP(CUDSProImg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_BSHARP, &CUDSProImg::OnBnClickedBtnBsharp)
 	ON_BN_CLICKED(IDC_BTN_SURE, &CUDSProImg::OnBnClickedBtnSure)
 	ON_BN_CLICKED(IDC_BTN_UNSURE, &CUDSProImg::OnBnClickedBtnUnsure)
+	ON_CBN_SELCHANGE(IDC_CMB_BLINEWIDTH, &CUDSProImg::OnSelchangeCmbBlinewidth)
+	ON_BN_CLICKED(IDC_MFCCOLOR_BCOLOR, &CUDSProImg::OnClickedMfccolorBcolor)
+	ON_BN_CLICKED(IDC_BTN_BBACKUP2, &CUDSProImg::OnBnClickedBtnBbackup2)
+	ON_BN_CLICKED(IDC_BTN_BADDTEXT, &CUDSProImg::OnBnClickedBtnBaddtext)
+	ON_BN_CLICKED(IDC_CHK_BBOLD, &CUDSProImg::OnClickedChkBbold)
+	ON_BN_CLICKED(IDC_CHK_BITALIC, &CUDSProImg::OnClickedChkBitalic)
+	ON_CBN_SELCHANGE(IDC_CMB_CFONT, &CUDSProImg::OnSelchangeCmbCfont)
+	ON_CBN_SELCHANGE(IDC_CMB_BFONTSIZE, &CUDSProImg::OnSelchangeCmbBfontsize)
 END_MESSAGE_MAP()
 
 
@@ -210,74 +221,52 @@ void CUDSProImg::Self_SetCtrl(int index)
 	}
 	else if (index == 1)
 	{
-		GetDlgItem(IDC_STA_BLINEWIDTH)->ShowWindow(SW_NORMAL);
-		GetDlgItem(IDC_CMB_BLINEWIDTH)->ShowWindow(SW_NORMAL);
-
+		GetDlgItem(IDC_STA_CFONT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_CMB_CFONT)->EnableWindow(FALSE);
 		GetDlgItem(IDC_STA_CFONT)->ShowWindow(SW_HIDE);
 		GetDlgItem(IDC_CMB_CFONT)->ShowWindow(SW_HIDE);
 
-		GetDlgItem(IDC_CMB_CFONT)->EnableWindow(FALSE);
+		GetDlgItem(IDC_STA_BLINEWIDTH)->EnableWindow(TRUE);
 		GetDlgItem(IDC_CMB_BLINEWIDTH)->EnableWindow(TRUE);
+		GetDlgItem(IDC_STA_BLINEWIDTH)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_CMB_BLINEWIDTH)->ShowWindow(SW_NORMAL);
+
+		
+		GetDlgItem(IDC_STA_BLINECOLOR)->EnableWindow(TRUE);
 		GetDlgItem(IDC_MFCCOLOR_BCOLOR)->EnableWindow(TRUE);
+
+
+		GetDlgItem(IDC_STA_BFONTSIZE)->EnableWindow(FALSE);
 		GetDlgItem(IDC_CMB_BFONTSIZE)->EnableWindow(FALSE);
 		GetDlgItem(IDC_CHK_BBOLD)->EnableWindow(FALSE);
 		GetDlgItem(IDC_CHK_BITALIC)->EnableWindow(FALSE);
+		GetDlgItem(IDC_STA_BTEXTINFO)->EnableWindow(FALSE);
 		GetDlgItem(IDC_EDIT_BTEXTINFO)->EnableWindow(FALSE);
-		GetDlgItem(IDC_BTN_BADDTEXT)->EnableWindow(FALSE);	
-
-		CRect  tem_rcRect;
-		GetDlgItem(IDC_STA_BLINEWIDTH)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
-
-		GetDlgItem(IDC_STA_BLINECOLOR)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);	
-
-		GetDlgItem(IDC_STA_BFONTSIZE)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
-
-		GetDlgItem(IDC_STA_BTEXTINFO)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
+		GetDlgItem(IDC_BTN_BADDTEXT)->EnableWindow(FALSE);		
 	}
 	else if (index == 2)
 	{
+		GetDlgItem(IDC_STA_BLINEWIDTH)->EnableWindow(FALSE);
+		GetDlgItem(IDC_CMB_BLINEWIDTH)->EnableWindow(FALSE);
 		GetDlgItem(IDC_STA_BLINEWIDTH)->ShowWindow(SW_HIDE);
 		GetDlgItem(IDC_CMB_BLINEWIDTH)->ShowWindow(SW_HIDE);
 
+		GetDlgItem(IDC_STA_CFONT)->EnableWindow(TRUE);
+		GetDlgItem(IDC_CMB_CFONT)->EnableWindow(TRUE);
 		GetDlgItem(IDC_STA_CFONT)->ShowWindow(SW_NORMAL);
 		GetDlgItem(IDC_CMB_CFONT)->ShowWindow(SW_NORMAL);
 
-		GetDlgItem(IDC_CMB_BLINEWIDTH)->EnableWindow(FALSE);
-		GetDlgItem(IDC_CMB_CFONT)->EnableWindow(TRUE);
+		GetDlgItem(IDC_STA_BLINECOLOR)->EnableWindow(TRUE);
 		GetDlgItem(IDC_MFCCOLOR_BCOLOR)->EnableWindow(TRUE);
+
+
+		GetDlgItem(IDC_STA_BFONTSIZE)->EnableWindow(TRUE);
 		GetDlgItem(IDC_CMB_BFONTSIZE)->EnableWindow(TRUE);
 		GetDlgItem(IDC_CHK_BBOLD)->EnableWindow(TRUE);
 		GetDlgItem(IDC_CHK_BITALIC)->EnableWindow(TRUE);
+		GetDlgItem(IDC_STA_BTEXTINFO)->EnableWindow(TRUE);
 		GetDlgItem(IDC_EDIT_BTEXTINFO)->EnableWindow(TRUE);
-
-		GetDlgItem(IDC_BTN_BADDTEXT)->EnableWindow(TRUE);
-
-		GetDlgItem(IDC_BTN_BBACKUP2)->EnableWindow(TRUE);
-
-		CRect  tem_rcRect;
-		GetDlgItem(IDC_STA_CFONT)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
-
-		GetDlgItem(IDC_STA_BLINECOLOR)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
-
-		GetDlgItem(IDC_STA_BFONTSIZE)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
-
-		GetDlgItem(IDC_STA_BTEXTINFO)->GetWindowRect(&tem_rcRect); 
-		ScreenToClient(&tem_rcRect); 
-		InvalidateRect(&tem_rcRect);
+		GetDlgItem(IDC_BTN_BADDTEXT)->EnableWindow(TRUE);	
 	}
 }
 
@@ -431,20 +420,25 @@ void CUDSProImg::OnBnClickedBtnBmarkit()
 	// TODO: 在此添加控件通知处理程序代码
 	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 14, 0);
 	m_nOperation = 14;
+
+	GetDlgItem(IDC_BTN_BBACKUP2)->EnableWindow(TRUE);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBarrow()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	m_nNote = 1;
 	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 15, 0);
 	m_nOperation = 15;
+	GetDlgItem(IDC_BTN_BBACKUP2)->EnableWindow(TRUE);
 }
 
 
 void CUDSProImg::OnBnClickedBtnBtext()
 {
 	// TODO: 在此添加控件通知处理程序代码
+	m_nNote = 2;
 	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 16, 0);
 	m_nOperation = 16;
 }
@@ -646,4 +640,101 @@ void CUDSProImg::OnBnClickedBtnUnsure()
 	Self_DisableCtrl(1);
 
 	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 21, m_nOperation);
+}
+
+
+void CUDSProImg::OnSelchangeCmbBlinewidth()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	//线宽
+	int tem_nSlcIndex = m_conLineWidth.GetCurSel();
+	CString  tem_strInfo   = _T("");
+	m_conLineWidth.GetLBText(tem_nSlcIndex, tem_strInfo);
+	m_nLineWidth = _ttoi(tem_strInfo);
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 22, m_nLineWidth);
+
+}
+
+
+void CUDSProImg::OnClickedMfccolorBcolor()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	m_clrLineColor = m_conColor.GetColor();
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 23, m_clrLineColor);
+}
+
+
+void CUDSProImg::OnBnClickedBtnBbackup2()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 1, 0);
+}
+
+
+void CUDSProImg::OnBnClickedBtnBaddtext()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData(TRUE);
+	g_strEditInfo = m_editInfo;
+	if (g_strEditInfo.IsEmpty())
+	{
+		MessageBox(_T("请输入标注内容！"), _T("UDS"), MB_OK);
+	}
+	else
+	{
+		m_nOperation = 24;
+		::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 24, m_BItalic);
+	}
+}
+
+
+void CUDSProImg::OnSelchangeCmbCfont()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	int      tem_nIndex  = m_conFont.GetCurSel();
+	CString  tem_strInfo = _T("");
+	m_conFont.GetLBText(tem_nIndex, tem_strInfo);
+	m_strFont = tem_strInfo;
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 27, tem_nIndex);
+}
+
+
+void CUDSProImg::OnSelchangeCmbBfontsize()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	int  tem_nIndex = m_conFontSize.GetCurSel();
+	CString  tem_strInfo   = _T("");
+	m_conFontSize.GetLBText(tem_nIndex, tem_strInfo);
+	m_nFontSize = _ttoi(tem_strInfo);
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 28, m_nFontSize);
+}
+
+
+void CUDSProImg::OnClickedChkBbold()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (BST_CHECKED==IsDlgButtonChecked(IDC_CHK_BBOLD))
+	{
+		m_BBold = TRUE;
+	}
+	else
+	{
+		m_BBold = FALSE;
+	}
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 25, m_BBold);
+}
+
+
+void CUDSProImg::OnClickedChkBitalic()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	if (BST_CHECKED==IsDlgButtonChecked(IDC_CHK_BITALIC))
+	{
+		m_BItalic = TRUE;
+	}
+	else
+	{
+		m_BItalic = FALSE;
+	}
+	::SendMessage(g_hMainHwnd, WM_IMGPROCESS, 26, m_BItalic);
 }

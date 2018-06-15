@@ -85,4 +85,13 @@ public:
 	BOOL Self_DisableCtrl(int index);
 	afx_msg void OnBnClickedBtnSure();
 	afx_msg void OnBnClickedBtnUnsure();
+	afx_msg void OnSelchangeCmbBlinewidth();
+	afx_msg void OnClickedMfccolorBcolor();
+	afx_msg void OnBnClickedBtnBbackup2();
+	afx_msg void OnBnClickedBtnBaddtext();
+	CString m_editInfo;
+	afx_msg void OnClickedChkBbold();
+	afx_msg void OnClickedChkBitalic();
+	afx_msg void OnSelchangeCmbCfont();
+	afx_msg void OnSelchangeCmbBfontsize();
 };
