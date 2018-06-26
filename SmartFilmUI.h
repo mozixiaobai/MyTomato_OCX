@@ -1,6 +1,9 @@
 #pragma once
 #define WM_SCANSET WM_USER+1001
 #define WM_IMGPROCESS WM_USER+1002
+#define WM_THREADOVER WM_USER+1003
+#define WM_THREADDETECT WM_USER+1004
+#define WM_CAPTUREOVER WM_USER+1010
 
 
 #include "uds_videoctrl1.h"
@@ -37,6 +40,14 @@ typedef struct tagPROPERTY
 	long      m_lMinValue;
 }PROPERTY;
 
+UINT ThreadDelay(LPVOID lpParam);   //延时线程入口
+UINT ThreadDetect(LPVOID lpParam);  //检测文件是否生成
+struct ThreadInfo
+{
+	HWND     hWnd;     //窗口句柄，用于发送消息
+	int      time;     //延迟时间
+	int      mode;     //标志位
+};
 
 // CSmartFilmUI 对话框
 
@@ -83,6 +94,9 @@ public:
 	CString m_strTabImg;       //Tab控件切换时的显示图像
 	CString m_strFilesPath;
 	CString m_strBufferImgPath;
+	CString m_strCurImgName;
+	int m_nCurImgMode;
+	
 	
 
 
@@ -348,4 +362,26 @@ public:
 	Mat Self_AddText(Mat src, CRect showRect, CRect cropRect, CString textinfo, COLORREF color, CString font, int fontsize, bool bold, bool italic);
 	void putTextEx(Mat& dst, const char* str, cv::Point org, Scalar color, int fontSize, const char* fn, bool italic, bool underline, bool bold);
 	void GetStringSize(HDC hDC, const char* str, int* w, int* h);
+	void StopRun(void);
+	void Self_CaptureImgHDR(CString imgname, int mode);
+	void Self_TimeDelay(int time_ms);
+	CWinThread* hThreadHandle;  //保存线程句柄
+	ThreadInfo  stcThreadInfo;
+//	CString     m_strCurImgName; //用于线程拍摄
+	std::vector<CString> m_vcSomeStrInfo;
+	CWinThread* hThreadHandle2;
+	void Self_CaptureImgHDRThread(CString imgname, int mode , int ex);
+	void Self_HDRMergeImgEx(CString LowImg, CString NorImg, CString HigImg, CString OutImg, int mode, int lowlight_L, int norlight_L, int higlight_L, int lowlight_H, int norlight_H, int higlight_H);
+protected:
+	afx_msg LRESULT OnThreadover(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT OnThreaddetect(WPARAM wParam, LPARAM lParam);
+public:
+	void Self_CopyFiles();
+	void Self_ResetParamers(void);
+	void Self_SetSaveDir(CString dir);
+	int Self_SetRectMode(int mode);
+	int Self_CaptureImage(CString imgname, int mode);
+	int Self_SetWaterMark(LONG _mode, LONG _site, LONG _size, LONG _font, CString _color, CString _info, LONG _type);
+	CString m_strCurImgPath;   //当前文件路径，用于事件
+	afx_msg void OnItemchangedListImage(NMHDR *pNMHDR, LRESULT *pResult);
 };

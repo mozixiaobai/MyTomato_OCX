@@ -21,6 +21,7 @@ CUDSGetImg::CUDSGetImg(CWnd* pParent /*=NULL*/)
 {
 
 	m_staComputerD = _T("");
+	m_staProgress = _T("");
 }
 
 CUDSGetImg::~CUDSGetImg()
@@ -39,6 +40,8 @@ void CUDSGetImg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SLID_ADELAY, m_slidComputer);
 	DDX_Text(pDX, IDC_STA_ADELAYV, m_staComputerD);
 	DDX_Control(pDX, IDC_EDIT_SHOWINFO, m_conEditInfo);
+	DDX_Control(pDX, IDC_PROGRESS_HDR, m_conProgress);
+	DDX_Text(pDX, IDC_STA_PROGRESS, m_staProgress);
 }
 
 
@@ -241,6 +244,14 @@ BOOL CUDSGetImg::OnInitDialog()
 		m_staComputerD.Format(_T("%d"), m_nComputer);
 		UpdateData(FALSE);
 	}
+
+	//12、进度条初始化
+	m_conProgress.SetRange(0, 100);
+	m_conProgress.SetPos(0);
+	m_conProgress.ShowWindow(SW_HIDE);
+	m_staProgress = _T("0%");
+	UpdateData(FALSE);
+	GetDlgItem(IDC_STA_PROGRESS)->ShowWindow(SW_HIDE);
 
 
 
@@ -919,5 +930,91 @@ void CUDSGetImg::OnClickedChkAdelay()
 		m_slidComputer.SetPos(2);
 		::WritePrivateProfileString(_T("BaseSet"), _T("Computer"), _T("2"), m_strIniPath);
 		::SendMessage(g_hMainHwnd, WM_SCANSET, 18, 2);
+	}
+}
+
+
+void CUDSGetImg::Self_HideCtrls(int mode)
+{
+	if (mode == 1)
+	{
+		m_conProgress.SetPos(0);
+		m_staProgress = _T("0%");
+		GetDlgItem(IDC_BTN_HDR)->ShowWindow(SW_HIDE);
+		GetDlgItem(IDC_BTN_LDR)->ShowWindow(SW_HIDE);
+		GetDlgItem(IDC_BTN_CAP)->ShowWindow(SW_HIDE);
+		m_conProgress.ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_STA_PROGRESS)->ShowWindow(SW_NORMAL);
+		UpdateData(FALSE);
+
+	}
+	else if (mode == 0)
+	{
+		GetDlgItem(IDC_BTN_HDR)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_BTN_LDR)->ShowWindow(SW_NORMAL);
+		GetDlgItem(IDC_BTN_CAP)->ShowWindow(SW_NORMAL);
+		m_conProgress.ShowWindow(SW_HIDE);
+		GetDlgItem(IDC_STA_PROGRESS)->ShowWindow(SW_HIDE);
+		UpdateData(FALSE);
+	}
+	else if (mode == 2)
+	{
+		m_conProgress.SetPos(10);
+		m_staProgress = _T("10%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 3)
+	{
+		m_conProgress.SetPos(20);
+		m_staProgress = _T("20%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 4)
+	{
+		m_conProgress.SetPos(30);
+		m_staProgress = _T("30%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 5)
+	{
+		m_conProgress.SetPos(35);
+		m_staProgress = _T("35%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 6)
+	{
+		m_conProgress.SetPos(60);
+		m_staProgress = _T("60%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 7)
+	{
+		m_conProgress.SetPos(70);
+		m_staProgress = _T("70%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 8)
+	{
+		m_conProgress.SetPos(90);
+		m_staProgress = _T("90%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 9)
+	{
+		m_conProgress.SetPos(85);
+		m_staProgress = _T("85%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 10)
+	{
+		m_conProgress.SetPos(90);
+		m_staProgress = _T("90%");
+		UpdateData(FALSE);
+	}
+	else if (mode == 11)
+	{
+		m_conProgress.SetPos(100);
+		m_staProgress = _T("100%");
+		UpdateData(FALSE);
 	}
 }

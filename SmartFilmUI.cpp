@@ -10,11 +10,14 @@
 CString  g_strProXmlPath;        //透射稿默认模板
 CString  g_strDocXmlPath;        //反射稿默认模板
 CString  g_strEditInfo;
+CString  m_strHDRImg;
+CString  g_strIniPath;
 std::vector<CString> g_vcRes;
 int g_nGrayValue[18][2]={{169,42}, {100,32}, {106,33}, {112,34}, {119,35}, {125,36}, {131,37}, {137,38}, {144,39}, {150,40},{156,41}, {162,42}, {169,43}, {175,44}, {181,45}, {187,46}, {194,47}, {200,48}};
 HWND g_hMainHwnd;
 
 extern CSmartFilmApp theApp;
+extern HWND g_hCtrHwnd;
 
 
 //加载调焦dll
@@ -64,6 +67,9 @@ BEGIN_MESSAGE_MAP(CSmartFilmUI, CDialogEx)
 	ON_WM_LBUTTONUP()
 	ON_WM_MOUSEMOVE()
 	ON_WM_MOUSEWHEEL()
+	ON_MESSAGE(WM_THREADOVER, &CSmartFilmUI::OnThreadover)
+	ON_MESSAGE(WM_THREADDETECT, &CSmartFilmUI::OnThreaddetect)
+	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST_IMAGE, &CSmartFilmUI::OnItemchangedListImage)
 END_MESSAGE_MAP()
 
 
@@ -75,7 +81,6 @@ BOOL CSmartFilmUI::OnInitDialog()
 	CDialogEx::OnInitDialog();
 
 	// TODO:  在此添加额外的初始化
-
 	/*1、变量初始化*/
 	m_strConfigDoc = _T(""); 
 	m_strXmlDoc    = _T("");     
@@ -96,6 +101,8 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_strWaterColor = _T("");
 	m_strWaterInfo = _T("");
 	m_strTabImg = _T("");
+	m_strCurImgPath = _T("");
+	
 
 	m_nLastRes = 0;
 	m_nLastImgType = 0;
@@ -214,13 +221,22 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_strIniPath  = m_strConfigDoc;
 	m_strIniPath += _T("\\");
 	m_strIniPath += _T("BaseConfig.ini");	
-	CopyFile(_T("BaseConfig.ini"), m_strIniPath, TRUE);
+	g_strIniPath  = m_strIniPath;
+	CString tem_strIniPath = Self_GetOCXPath();
+	tem_strIniPath += _T("BaseConfig.ini");
+	MessageBox(tem_strIniPath);
+	MessageBox(m_strIniPath);
+	CopyFile(tem_strIniPath, m_strIniPath, TRUE);
+//	CopyFile(_T("BaseConfig.ini"), m_strIniPath, TRUE);
 
 	//config文件路径
 	m_strXmlPath  = m_strConfigDoc;
 	m_strXmlPath += _T("\\");
 	m_strXmlPath += _T("config.xml");
-	CopyFile(_T("config.xml"), m_strXmlPath, TRUE);
+	CString tem_strCfgPath = Self_GetOCXPath();
+	tem_strCfgPath += _T("config.xml");
+	CopyFile(tem_strCfgPath, m_strXmlPath, TRUE);
+//	CopyFile(_T("config.xml"), m_strXmlPath, TRUE);
 
 	/*3、摄像头初始化,并启动设备*/
 	m_lReturnCode = m_conOCX.Initial();
@@ -326,6 +342,8 @@ BOOL CSmartFilmUI::OnInitDialog()
 	m_dlgPro.ShowWindow(FALSE);
 
 	m_conTab.SetCurSel(0);
+
+	GetDlgItem(IDC_STA_PIC)->ShowWindow(SW_HIDE);
 
 	/*7、读取文件格式*/
 	switch(m_nLastImgType)
@@ -671,6 +689,17 @@ CString CSmartFilmUI::Self_GetMyDocument(void)
 		return tem_strMyDocument;
 	}
 	return tem_strMyDocument;
+}
+
+
+void CSmartFilmUI::Self_CopyFiles()
+{
+	CString tem_strIniPath = Self_GetOCXPath();
+	CString tem_strCfgPath = tem_strIniPath;
+	tem_strIniPath += _T("BaseConfig.ini");
+	tem_strCfgPath += _T("config.xml");
+	CopyFile(tem_strIniPath, m_strIniPath, TRUE);
+	CopyFile(tem_strCfgPath, m_strXmlPath, TRUE);
 }
 
 
@@ -3234,6 +3263,7 @@ void CSmartFilmUI::Self_ReadXml(CString xmlpath)
 	{
 		//手动裁切
 		m_conOCX.ManualImageCrop(TRUE);
+		m_conOCX.AdjuestImageCrop(FALSE);
 		m_conOCX.SetMessage(1);
 	}
 	else if (m_nViewMode == 1)
@@ -3243,7 +3273,6 @@ void CSmartFilmUI::Self_ReadXml(CString xmlpath)
 		m_conOCX.SetMessage(1);
 		m_conOCX.SetRectValue(m_lLeftSite, m_lTopSite, m_lRightSite, m_lBottomSite);
 		m_conOCX.SetMessage(0);
-
 	}
 	else if(m_nViewMode == 2)
 	{
@@ -3748,6 +3777,7 @@ afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 			//手动裁切
 			m_conOCX.ManualImageCrop(TRUE);
 			m_conOCX.AdjuestImageCrop(FALSE);
+			m_conOCX.SetMessage(1);
 		} 
 		else if(tem_nInfo==2)
 		{
@@ -3760,10 +3790,24 @@ afx_msg LRESULT CSmartFilmUI::OnScanset(WPARAM wParam, LPARAM lParam)
 		if (tem_nInfo==0)
 		{
 			//高密度
+			tem_strImgName  = Self_NamingFile(m_nImageCount);
+			m_strCurImgName = tem_strImgName;
+			m_nCurImgMode = 1;
+
+			Self_CaptureImgHDRThread(m_strCurImgName, 1, 0);
+
+			m_nPrcsIndex = -1;
 		} 
 		else if(tem_nInfo==1)
 		{
 			//低密度
+			tem_strImgName  = Self_NamingFile(m_nImageCount);
+			m_strCurImgName = tem_strImgName;
+			m_nCurImgMode = 0;
+
+			Self_CaptureImgHDRThread(m_strCurImgName, 0, 0);
+
+			m_nPrcsIndex = -1;
 		}
 		else
 		{
@@ -4214,6 +4258,18 @@ afx_msg LRESULT CSmartFilmUI::OnImgprocess(WPARAM wParam, LPARAM lParam)
 		break;
 	case 17:
 		//裁切
+		if (!m_cvSrcImage.data)
+		{
+			MessageBox(_T("加载图像失败！"));
+			break;
+		}
+		m_BNoSaved = TRUE;
+		m_BSlcRect = TRUE;
+		Self_ResetImageRect();
+		//重新加载图像
+		Self_ClearPicCtrl();
+		Self_ResizeImage(pWnd, m_cvSrcImage);
+		Self_ShowMatImage2(m_cvSrcImage, m_rcImageShow);
 		break;
 	case 18:
 		//反色
@@ -4667,9 +4723,10 @@ int CSmartFilmUI::Self_GetIntervalTime(void)
 	{
 		//恢复为固定区域
 		m_conOCX.ManualImageCrop(TRUE);
+		m_conOCX.AdjuestImageCrop(FALSE);
 		m_conOCX.SetMessage(1);
-		m_conOCX.SetRectValue(m_lLeftSite, m_lTopSite, m_lRightSite, m_lBottomSite);
-		m_conOCX.SetMessage(0);
+// 		m_conOCX.SetRectValue(m_lLeftSite, m_lTopSite, m_lRightSite, m_lBottomSite);
+// 		m_conOCX.SetMessage(0);
 	}
 
 
@@ -4747,6 +4804,7 @@ double CSmartFilmUI::Self_GetAvgGray(CString imgpath)
 int CSmartFilmUI::AdjustRes(int _index)
 {
 	int tem_nCurValue = 0;
+	int tem_nRC = 0;
 	switch(_index)
 	{
 	case 0:
@@ -4768,12 +4826,12 @@ int CSmartFilmUI::AdjustRes(int _index)
 	if (tem_nCurValue == m_nInterpolateReso)
 	{
 		int tem_nMaxIndex = Self_GetSpyRes(1);
-		m_conOCX.SetResolutionPro(tem_nMaxIndex, m_nVidoeMode);
+		tem_nRC = m_conOCX.SetResolutionPro(tem_nMaxIndex, m_nVidoeMode);
 		m_nLastRes = tem_nCurValue;
 	} 
 	else
 	{
-		m_conOCX.SetResolutionPro(tem_nCurValue, m_nVidoeMode);
+		tem_nRC = m_conOCX.SetResolutionPro(tem_nCurValue, m_nVidoeMode);
 		m_nLastRes = tem_nCurValue;
 	}
 	//重新设置灰阶
@@ -4784,7 +4842,7 @@ int CSmartFilmUI::AdjustRes(int _index)
 	CString tem_strCurSel = _T("");
 	tem_strCurSel.Format(_T("%d"), _index);
 	::WritePrivateProfileString(_T("BaseSet"), _T("ResIndex"), tem_strCurSel, m_strIniPath); 
-	return m_nLastRes;
+	return tem_nRC;
 }
 
 
@@ -4821,7 +4879,7 @@ int CSmartFilmUI::AdjustFormat(int _index)
 	tem_strCurSel.Format(_T("%d"), m_nLastImgType);
 	::WritePrivateProfileString(_T("BaseSet"), _T("ImgType"), tem_strCurSel, m_strIniPath); 
 
-	return _index;
+	return 0;
 }
 
 
@@ -4829,26 +4887,27 @@ int CSmartFilmUI::AdjustFormat(int _index)
 int CSmartFilmUI::AdjustRotate(int _rotate)
 {
 	int tem_nCurValue = _rotate;
+	int tem_nRC = 0;
 	switch(tem_nCurValue)
 	{
 	case 0:
-		m_conOCX.RotatedVideo(0);
+		tem_nRC = m_conOCX.RotatedVideo(0);
 		break;
 	case 1:
-		m_conOCX.RotatedVideo(1);
+		tem_nRC = m_conOCX.RotatedVideo(1);
 		break;
 	case 2:
-		m_conOCX.RotatedVideo(2);
+		tem_nRC = m_conOCX.RotatedVideo(2);
 		break;
 	case 3:
-		m_conOCX.RotatedVideo(3);
+		tem_nRC = m_conOCX.RotatedVideo(3);
 		break;
 	default:
-		m_conOCX.RotatedVideo(0);
+		tem_nRC = m_conOCX.RotatedVideo(0);
 		break;
 	}
 	m_nLastPreRotate = tem_nCurValue;
-	return m_nLastPreRotate;
+	return tem_nRC;
 }
 
 
@@ -5093,6 +5152,7 @@ void CSmartFilmUI::Self_CaptureImg(CString imgname)
 
 	tem_strFilePath  += imgname;
 	tem_strFilePath  += m_strFileFormat;
+	m_strCurImgPath   = tem_strFilePath;
 
 	tem_strPdfImg += _T("\\~~");
 	tem_strPdfImg += imgname;
@@ -5520,6 +5580,7 @@ void CSmartFilmUI::Self_CaptureImg(CString imgname)
 		AdjustRelay(m_nLastRelay, 0);
 	}
 }
+
 
 CString CSmartFilmUI::Self_InterPolateImage(CString srcImage, CString dstImage, int index)
 {
@@ -7910,4 +7971,823 @@ void CSmartFilmUI::GetStringSize(HDC hDC, const char* str, int* w, int* h)
 	GetTextExtentPoint32A(hDC, str, strlen(str), &size);
 	if (w != 0) *w = size.cx;
 	if (h != 0) *h = size.cy;
+}
+
+
+void CSmartFilmUI::StopRun(void)
+{
+	m_conOCX.StopRun();
+	m_conOCX.Uninitial();
+	FreeLibrary(m_hDllInst);
+
+ 	std::vector<CString>::iterator item;
+	for (item=m_vcThumbPath.begin(); item!=m_vcThumbPath.end(); item++)
+	{
+		DeleteFile(*item);
+	}
+	
+	if (m_vcHistoryImg.size()>2)
+	{
+		if (m_BNoSaved)
+		{
+			int tem_nClose = MessageBox(_T("修改尚未保存！是否保存？"), _T("保存"), MB_YESNO);
+			if (tem_nClose == 6)
+			{
+				//确定保存
+				CString tem_strNewImgPath = m_vcHistoryImg.back();
+				CopyFile(tem_strNewImgPath, m_strFilesPath, FALSE);
+			}
+		}
+	}
+	if (m_vcHistoryImg.size()>1)
+	{
+		//逆向删除2后面的所有图像
+		std::vector<CString>::iterator item2;
+		for (item2=m_vcHistoryImg.begin()+1; item2!=m_vcHistoryImg.end(); item2++)
+		{
+			DeleteFile(*item2);
+		}
+	}
+	
+}
+
+
+void CSmartFilmUI::Self_CaptureImgHDR(CString imgname, int mode)
+{
+	
+	//文件命名---------------------------------------------------------------------------
+	CString    tem_strLowImg    = m_strThumbDoc;      //欠曝图像
+	tem_strLowImg              += _T("\\lbmd");
+	tem_strLowImg              += imgname;
+
+	CString    tem_strNorImg    = m_strThumbDoc;      //正常图像
+	tem_strNorImg              += _T("\\nbmd");
+	tem_strNorImg              += imgname;
+
+	CString    tem_strHigImg    = m_strThumbDoc;      //过曝图像
+	tem_strHigImg              += _T("\\hbmd");
+	tem_strHigImg              += imgname;
+
+	CString    tem_strHDRImg    = m_strThumbDoc;      //合成图像
+	tem_strHDRImg              += _T("\\bmd");
+	tem_strHDRImg              += imgname;
+
+	CString    tem_strThumbPath = m_strThumbDoc;      //缩略图像
+	tem_strThumbPath           += _T("\\~");
+	tem_strThumbPath           += imgname;
+	tem_strThumbPath           += _T(".jpg");
+
+	CString    tem_strIntImg    = m_strThumbDoc;      //插值图像
+	tem_strIntImg              += _T("\\~~~");
+	tem_strIntImg              += imgname;
+
+	CString    tem_strFilePath  = m_strSaveDoc;       //目标文件
+	tem_strFilePath            += imgname;
+	tem_strFilePath            += m_strFileFormat;
+	
+	if (m_nLastImgType>=0 && m_nLastImgType<3)
+	{
+		tem_strLowImg += m_strFileFormat;
+		tem_strNorImg += m_strFileFormat;
+		tem_strHigImg += m_strFileFormat;
+		tem_strHDRImg += m_strFileFormat;
+		tem_strIntImg += m_strFileFormat;
+	} 
+	else if(m_nLastImgType == 4 || m_nLastImgType == 5 ||m_nLastImgType == 3)  //3-tif,tif无法合成
+	{
+		tem_strLowImg += _T(".jpg");
+		tem_strNorImg += _T(".jpg");
+		tem_strHigImg += _T(".jpg");
+		tem_strHDRImg += _T(".jpg");
+		tem_strIntImg += _T(".jpg");
+	}
+	
+	/*
+	*     说明
+	*   由于不同拍照间不需要再设置不同灰阶和逆光对比，因此将这两项设置注释，以提升效率
+	*
+	*/
+	
+	if (mode == 1)
+	{
+		if (m_nNorLight != m_nLastRelay)
+		{
+			//调节灯箱**********************************
+			AdjustRelay(m_nNorLight, m_nLastRelay);
+			Self_TimeDelay(m_nIntervalTime);
+		}	
+	} 
+	else
+	{
+		if (m_nNorLightL != m_nLastRelay)
+		{
+			//调节灯箱**********************************
+			AdjustRelay(m_nNorLightL, m_nLastRelay);
+			Self_TimeDelay(m_nIntervalTime);
+		}
+	}
+	m_conOCX.CaptureImage(tem_strNorImg);
+	
+	
+	if (mode == 1)
+	{
+		//调节灯箱**********************************
+		AdjustRelay(m_nLowLight, m_nNorLight);
+		Self_TimeDelay(m_nIntervalTime);
+	} 
+	else
+	{
+		//调节灯箱**********************************
+		AdjustRelay(m_nLowLightL, m_nNorLightL);
+		Self_TimeDelay(m_nIntervalTime);
+	}
+	//拍照-------------------------------------
+	m_conOCX.CaptureImage(tem_strLowImg);
+
+	if (mode == 1)
+	{
+		//调节灯箱**********************************
+		AdjustRelay(m_nHigLight, m_nLowLight);
+		//调节灰阶----------------------------------
+		Self_TimeDelay(m_nIntervalTime);
+	} 
+	else
+	{
+		//调节灯箱**********************************
+		AdjustRelay(m_nHigLightL, m_nLowLightL);
+		//调节灰阶----------------------------------
+		Self_TimeDelay(m_nIntervalTime);
+	}
+	//拍照-------------------------------------
+	m_conOCX.CaptureImage(tem_strHigImg);
+
+	//恢复参数--------------------------------------------------------------------------
+	if (mode == 1)
+	{
+		//先校准，再恢复---------------------------------
+		int tem_nSave = m_nLastRelay;
+		Self_SetRelayZero();
+		m_nLastRelay = tem_nSave; 
+		AdjustRelay(m_nLastRelay, 0);
+	} 
+	else
+	{
+		//先校准，再恢复---------------------------------
+		int tem_nSave = m_nLastRelay;
+		Self_SetRelayZero();
+		m_nLastRelay = tem_nSave; 
+		AdjustRelay(m_nLastRelay, 0);
+	}
+
+	
+	
+
+	/*将合成图像移至接收到下层返回消息处，在此处合成1、while不断检测文件有系统开销；2、检测的文件的速度快于子程序释放图像速度，没有下面延时可能内存异常*/
+	/*
+	//合成图像--------------------------------------------------------------------------
+	if(PathFileExists(tem_strHDRImg))
+	{
+		::DeleteFile(tem_strHDRImg);
+	}
+//	Self_HDRMergeImgs(tem_strHigImg, tem_strNorImg, tem_strLowImg, tem_strHDRImg);   //方法一
+//	Self_HDRMergeImgs3_1(tem_strHigImg, tem_strNorImg, tem_strLowImg, tem_strHDRImg, mode);  //方法二
+	Self_HDRMergeImgEx(tem_strLowImg, tem_strNorImg, tem_strHigImg, tem_strHDRImg, mode, m_nLowLightL, m_nNorLightL, m_nHigLightL, m_nLowLight, m_nNorLight, m_nHigLight);
+	//等待子程序生成完毕再继续-----------------------------------------------------------
+	BOOL  tem_BComplted = TRUE;
+	while(tem_BComplted)
+	{
+		//查询文件是否存在------------------
+		if(PathFileExists(tem_strHDRImg))
+		{
+			break;
+		}
+
+	}
+	Self_TimeDelay(300);
+	//删除缓存图像----------------------------------------------------------------------
+// 	::DeleteFile(tem_strHigImg);
+// 	::DeleteFile(tem_strNorImg);
+// 	::DeleteFile(tem_strLowImg);
+	
+
+	//是否需要添加水印-------------------------------------------------------------------
+	if (m_nWaterMark == 1)
+	{
+		Self_AddWaterMark(tem_strHDRImg);
+	}
+
+	//创建缩略图------------------------------------------------------------------------
+	Self_CreateThumb(tem_strHDRImg, tem_strThumbPath);
+
+	//是否需要插值----------------------------------------------------------------------
+	if (m_nLastRes==m_nInterpolateReso)
+	{
+		Self_InterPolateImage(tem_strHDRImg, tem_strIntImg, 0);
+		::DeleteFile(tem_strHDRImg);
+		tem_strHDRImg = tem_strIntImg;
+	}
+
+	//判断图像格式----------------------------------------------------------------------
+	 if(m_nLastImgType == 4)
+	 {
+		 Self_GetPdfFromImg(tem_strHDRImg, tem_strFilePath);
+	 }
+	 else if (m_nLastImgType == 5)
+	 {
+		 char*  tem_cName  = NULL;
+		 char*  tem_cId    = NULL;
+		 char*  tem_cBirth = NULL;
+		 char*  tem_cSex   = NULL;
+		 char*  tem_cDName = NULL;
+		 char*  tem_cDate  = NULL;
+		 char*  tem_cTime  = NULL;
+
+		 IMAGEAndDCM*   tem_dcm = new IMAGEAndDCM;
+		 tem_dcm->Set(tem_cName, tem_cId, tem_cBirth, tem_cSex, tem_cDName, tem_cDate, tem_cTime);
+
+		 USES_CONVERSION;  
+		 char*   tem_cSrc = T2A(tem_strHDRImg);
+		 char*   tem_cDst = T2A(tem_strFilePath);
+		 tem_dcm->SaveIMAGEtoDCM(tem_cSrc, tem_cDst);
+	 }
+	 else if (m_nLastImgType == 3)
+	 {
+		 //将jpg图像转为tif图像
+		 CxImage tem_cxJPG;
+		 tem_cxJPG.Load(tem_strHDRImg, CMAX_IMAGE_FORMATS);
+		 tem_cxJPG.SetCodecOption(5, CXIMAGE_FORMAT_TIF);
+		 tem_cxJPG.Save(tem_strFilePath, CXIMAGE_FORMAT_TIF);	 
+	 }
+	 else
+	 {
+		 CopyFile(tem_strHDRImg, tem_strFilePath, FALSE);
+	 }
+//	 ::DeleteFile(tem_strHDRImg);
+	
+	 m_vcImgName.push_back(imgname);
+	 m_vcThumbPath.push_back(tem_strThumbPath);
+	 m_vcFilePath.push_back(tem_strFilePath);
+	 ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+
+	 Self_ShowImgInfo(tem_strFilePath);
+	 m_nImageCount++;
+	 MessageBox(_T("Over"));
+	 */
+}
+
+#include "MMsystem.h"   //延时函数,精度毫秒
+#pragma comment(lib, "winmm.lib")
+void CSmartFilmUI::Self_TimeDelay(int time_ms)
+{
+	DWORD    tem_dTimeBegin = timeGetTime();
+	DWORD    tem_dTimeEnd   = 0;
+	do 
+	{
+		tem_dTimeEnd = timeGetTime();
+	} while (tem_dTimeEnd-tem_dTimeBegin<=time_ms);
+}
+
+
+void CSmartFilmUI::Self_CaptureImgHDRThread(CString imgname, int mode , int ex)
+{
+	//文件命名---------------------------------------------------------------------------
+	CString    tem_strLowImg    = m_strThumbDoc;      //欠曝图像
+	tem_strLowImg              += _T("\\lbmd");
+	tem_strLowImg              += imgname;
+
+	CString    tem_strNorImg    = m_strThumbDoc;      //正常图像
+	tem_strNorImg              += _T("\\nbmd");
+	tem_strNorImg              += imgname;
+
+	CString    tem_strHigImg    = m_strThumbDoc;      //过曝图像
+	tem_strHigImg              += _T("\\hbmd");
+	tem_strHigImg              += imgname;
+
+	CString    tem_strHDRImg    = m_strThumbDoc;      //合成图像
+	tem_strHDRImg              += _T("\\bmd");
+	tem_strHDRImg              += imgname;
+
+	CString    tem_strThumbPath = m_strThumbDoc;      //缩略图像
+	tem_strThumbPath           += _T("\\~");
+	tem_strThumbPath           += imgname;
+	tem_strThumbPath           += _T(".jpg");
+
+	CString    tem_strIntImg    = m_strThumbDoc;      //插值图像
+	tem_strIntImg              += _T("\\~~~");
+	tem_strIntImg              += imgname;
+
+	CString    tem_strFilePath  = m_strSaveDoc;       //目标文件
+	tem_strFilePath            += imgname;
+	tem_strFilePath            += m_strFileFormat;
+	m_strCurImgPath             = tem_strFilePath;
+	
+	if (m_nLastImgType>=0 && m_nLastImgType<3)
+	{
+		tem_strLowImg += m_strFileFormat;
+		tem_strNorImg += m_strFileFormat;
+		tem_strHigImg += m_strFileFormat;
+		tem_strHDRImg += m_strFileFormat;
+		tem_strIntImg += m_strFileFormat;
+	} 
+	else if(m_nLastImgType == 4 || m_nLastImgType == 5 ||m_nLastImgType == 3)  //3-tif,tif无法合成
+	{
+		tem_strLowImg += _T(".jpg");
+		tem_strNorImg += _T(".jpg");
+		tem_strHigImg += _T(".jpg");
+		tem_strHDRImg += _T(".jpg");
+		tem_strIntImg += _T(".jpg");
+	}
+	/*
+	*     说明
+	*   由于不同拍照间不需要再设置不同灰阶和逆光对比，因此将这两项设置注释，以提升效率
+	*
+	*/
+	if (ex == 0)
+	{
+		m_vcSomeStrInfo.clear();
+		if (m_nUIMode == 0 || m_nUIMode == 3)
+		{
+			m_dlgGet.Self_HideCtrls(1);
+		}
+		
+		if (mode == 1)
+		{
+			if (m_nNorLight != m_nLastRelay)
+			{
+				//调节灯箱**********************************
+				AdjustRelay(m_nNorLight, m_nLastRelay);
+				stcThreadInfo.hWnd = this->m_hWnd;
+				stcThreadInfo.time = m_nIntervalTime;
+				stcThreadInfo.mode = 1;
+				hThreadHandle = AfxBeginThread(ThreadDelay, &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+			}	
+			else
+			{
+				//亮度=10，不需要延时
+				stcThreadInfo.hWnd = this->m_hWnd;
+				stcThreadInfo.time = 0;
+				stcThreadInfo.mode = 1;
+				hThreadHandle = AfxBeginThread(ThreadDelay, &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+			}
+		} 
+		else
+		{
+			if (m_nNorLightL != m_nLastRelay)
+			{
+				//调节灯箱**********************************
+				AdjustRelay(m_nNorLightL, m_nLastRelay);
+				stcThreadInfo.hWnd = this->m_hWnd;
+				stcThreadInfo.time = m_nIntervalTime;
+				stcThreadInfo.mode = 1;
+				hThreadHandle = AfxBeginThread(ThreadDelay, &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+			}
+			else
+			{
+				//亮度=10，不需要延时
+				stcThreadInfo.hWnd = this->m_hWnd;
+				stcThreadInfo.time = 0;
+				stcThreadInfo.mode = 1;
+				hThreadHandle = AfxBeginThread(ThreadDelay, &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+			}
+		}
+	}
+	else if (ex == 1)
+	{
+		m_conOCX.CaptureImage(tem_strNorImg);
+		if (m_nUIMode == 0 || m_nUIMode == 3)
+		{
+			m_dlgGet.Self_HideCtrls(2);
+		}
+		
+		if (mode == 1)
+		{
+			//调节灯箱**********************************
+			AdjustRelay(m_nLowLight, m_nNorLight);
+		} 
+		else
+		{
+			//调节灯箱**********************************
+			AdjustRelay(m_nLowLightL, m_nNorLightL);
+		}
+		stcThreadInfo.hWnd = this->m_hWnd;
+		stcThreadInfo.time = m_nIntervalTime;
+		stcThreadInfo.mode = 2;
+		hThreadHandle = AfxBeginThread(ThreadDelay, &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+	}
+	else if (ex == 2)
+	{
+		m_conOCX.CaptureImage(tem_strLowImg);
+		if (m_nUIMode == 0 || m_nUIMode == 3)
+		{
+			m_dlgGet.Self_HideCtrls(3);
+		}
+		
+		if (mode == 1)
+		{
+			//调节灯箱**********************************
+			AdjustRelay(m_nHigLight, m_nLowLight);
+		} 
+		else
+		{
+			//调节灯箱**********************************
+			AdjustRelay(m_nHigLightL, m_nLowLightL);
+		}
+		stcThreadInfo.hWnd = this->m_hWnd;
+		stcThreadInfo.time = m_nIntervalTime;
+		stcThreadInfo.mode = 3;
+		hThreadHandle = AfxBeginThread(ThreadDelay, &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+	}
+	else if (ex == 3)
+	{
+		m_conOCX.CaptureImage(tem_strHigImg);
+		if (m_nUIMode == 0 || m_nUIMode == 3)
+		{
+			m_dlgGet.Self_HideCtrls(4);
+		}
+		
+
+		//恢复参数--------------------------------------------------------------------------
+		if (mode == 1)
+		{
+			//先校准，再恢复---------------------------------
+			int tem_nSave = m_nLastRelay;
+			Self_SetRelayZero();
+			m_nLastRelay = tem_nSave; 
+			AdjustRelay(m_nLastRelay, 0);
+		} 
+		else
+		{
+			//先校准，再恢复---------------------------------
+			int tem_nSave = m_nLastRelay;
+			Self_SetRelayZero();
+			m_nLastRelay = tem_nSave; 
+			AdjustRelay(m_nLastRelay, 0);
+		}
+		m_nImageCount++;
+		m_strHDRImg = tem_strHDRImg;
+		Self_HDRMergeImgEx(tem_strLowImg, tem_strNorImg, tem_strHigImg, tem_strHDRImg, mode, m_nLowLightL, m_nNorLightL, m_nHigLightL, m_nLowLight, m_nNorLight, m_nHigLight);
+		if (m_nUIMode == 0 || m_nUIMode == 3)
+		{
+			m_dlgGet.Self_HideCtrls(6);
+		}
+		
+
+//		m_nHdrMergeMode = mode;
+		m_vcSomeStrInfo.push_back(tem_strLowImg);
+		m_vcSomeStrInfo.push_back(tem_strNorImg);
+		m_vcSomeStrInfo.push_back(tem_strHigImg);
+		m_vcSomeStrInfo.push_back(tem_strHDRImg);
+		m_vcSomeStrInfo.push_back(tem_strThumbPath);
+		m_vcSomeStrInfo.push_back(tem_strIntImg);
+		m_vcSomeStrInfo.push_back(tem_strFilePath);
+		m_vcSomeStrInfo.push_back(imgname);
+
+		//开启线程，检测HDR图像是否已经生成，生成则发送消息，删除缓存
+		hThreadHandle2 = AfxBeginThread(ThreadDetect,  &stcThreadInfo, THREAD_PRIORITY_NORMAL, 0, NULL);
+	}
+}
+
+
+void CSmartFilmUI::Self_HDRMergeImgEx(CString LowImg, CString NorImg, CString HigImg, CString OutImg, int mode, int lowlight_L, int norlight_L, int higlight_L, int lowlight_H, int norlight_H, int higlight_H)
+{
+	CString tem_strSendInfo = _T("");
+	tem_strSendInfo  = LowImg; tem_strSendInfo += _T("#$");
+	tem_strSendInfo += NorImg; tem_strSendInfo += _T("#$");
+	tem_strSendInfo += HigImg; tem_strSendInfo += _T("#$");
+	tem_strSendInfo += OutImg; tem_strSendInfo += _T("#$");
+
+	CString tem_strMid = _T("");
+	tem_strMid.Format(_T("%d"), mode); tem_strSendInfo += tem_strMid; tem_strSendInfo += _T("#$");
+
+	tem_strMid.Format(_T("%d"), lowlight_L); tem_strSendInfo += tem_strMid; tem_strSendInfo += _T("#$");
+	tem_strMid.Format(_T("%d"), norlight_L); tem_strSendInfo += tem_strMid; tem_strSendInfo += _T("#$");
+	tem_strMid.Format(_T("%d"), higlight_L); tem_strSendInfo += tem_strMid; tem_strSendInfo += _T("#$");
+
+	tem_strMid.Format(_T("%d"), lowlight_H); tem_strSendInfo += tem_strMid; tem_strSendInfo += _T("#$");
+	tem_strMid.Format(_T("%d"), norlight_H); tem_strSendInfo += tem_strMid; tem_strSendInfo += _T("#$");
+	tem_strMid.Format(_T("%d"), higlight_H); tem_strSendInfo += tem_strMid; 
+
+	CString  tem_strAllInfo = _T("\"");
+	tem_strAllInfo += tem_strSendInfo;
+	tem_strAllInfo += _T("\"");
+	CString tem_strOcxPath = Self_GetOCXPath();
+	tem_strOcxPath += _T("UDSGenerateIt.exe");
+
+	ShellExecute(NULL, _T("open"), tem_strOcxPath, tem_strAllInfo, NULL, SW_SHOWNORMAL);
+}
+
+
+#include "MMsystem.h"   //延时函数,精度毫秒
+#pragma comment(lib, "winmm.lib")
+UINT ThreadDelay(LPVOID lpParam)  
+{
+	ThreadInfo* tem_pInfo = (ThreadInfo*)lpParam;
+	HWND tem_hWnd = tem_pInfo->hWnd;
+	int tem_nTime = tem_pInfo->time;
+	int tem_nMode = tem_pInfo->mode;
+
+	DWORD tem_nBegin = timeGetTime();
+	DWORD tem_nEnd = 0;
+	do 
+	{
+		tem_nEnd = timeGetTime();
+	} while (tem_nEnd-tem_nBegin<=tem_nTime);
+	::PostMessage(tem_hWnd, WM_THREADOVER, 0, tem_nMode);
+
+	return 0;
+}
+
+UINT ThreadDetect(LPVOID lpParam)
+{
+	ThreadInfo* tem_pInfo = (ThreadInfo*)lpParam;
+	HWND tem_hWnd = tem_pInfo->hWnd;
+	BOOL tem_BExist = FALSE;
+	CString tem_strInfo = _T("");
+	do 
+	{
+		::GetPrivateProfileString(_T("BaseSet"), _T("TalkCode"), _T("没有找到TalkCode信息"), tem_strInfo.GetBuffer(MAX_PATH), MAX_PATH, g_strIniPath);
+	} while (tem_strInfo != _T("3"));
+	
+	/*
+	do 
+	{
+		tem_BExist = PathFileExists(m_strHDRImg);
+	} while (!tem_BExist);
+	*/
+	::PostMessage(tem_hWnd, WM_THREADDETECT, 0, 0);
+	return 0;
+}
+
+afx_msg LRESULT CSmartFilmUI::OnThreadover(WPARAM wParam, LPARAM lParam)
+{
+	int tem_nInfo = (int)lParam;
+	Self_CaptureImgHDRThread(m_strCurImgName, m_nCurImgMode, tem_nInfo);
+	return 0;
+}
+
+
+afx_msg LRESULT CSmartFilmUI::OnThreaddetect(WPARAM wParam, LPARAM lParam)
+{
+	if (m_nUIMode == 0 || m_nUIMode == 3)
+	{
+		m_dlgGet.Self_HideCtrls(9);
+	}
+	
+	CString tem_strLowImg    = m_vcSomeStrInfo[0];
+	CString tem_strNorImg    = m_vcSomeStrInfo[1];
+	CString tem_strHigImg    = m_vcSomeStrInfo[2];
+	CString tem_strHDRImg    = m_vcSomeStrInfo[3];
+	CString tem_strThumbPath = m_vcSomeStrInfo[4];
+	CString tem_strIntImg    = m_vcSomeStrInfo[5];
+	CString tem_strFilePath  = m_vcSomeStrInfo[6];
+	CString imgname          = m_vcSomeStrInfo[7];
+
+	//等待子程序生成完毕再继续-----------------------------------------------------------
+	//删除缓存图像----------------------------------------------------------------------
+	::DeleteFile(tem_strHigImg);
+	::DeleteFile(tem_strNorImg);
+	::DeleteFile(tem_strLowImg);
+
+	//是否需要添加水印-------------------------------------------------------------------
+	if (m_nWaterMark == 1)
+	{
+		Self_AddWaterMark(tem_strHDRImg);
+	}
+
+	//创建缩略图------------------------------------------------------------------------
+	if (m_nUIMode == 0 || m_nUIMode == 3)
+	{
+		Self_CreateThumb(tem_strHDRImg, tem_strThumbPath);
+	}
+	
+
+	//是否需要插值----------------------------------------------------------------------
+	if (m_nLastRes==m_nInterpolateReso)
+	{
+		Self_InterPolateImage(tem_strHDRImg, tem_strIntImg, 0);
+		::DeleteFile(tem_strHDRImg);
+		tem_strHDRImg = tem_strIntImg;
+	}
+
+	//判断图像格式----------------------------------------------------------------------
+	if(m_nLastImgType == 4)
+	{
+		Self_GetPDFFromImg(tem_strHDRImg, tem_strFilePath);
+	}
+	else if (m_nLastImgType == 5)
+	{
+		char*  tem_cName  = NULL;
+		char*  tem_cId    = NULL;
+		char*  tem_cBirth = NULL;
+		char*  tem_cSex   = NULL;
+		char*  tem_cDName = NULL;
+		char*  tem_cDate  = NULL;
+		char*  tem_cTime  = NULL;
+
+		IMAGEAndDCM*   tem_dcm = new IMAGEAndDCM;
+		tem_dcm->Set(tem_cName, tem_cId, tem_cBirth, tem_cSex, tem_cDName, tem_cDate, tem_cTime);
+
+		USES_CONVERSION;  
+		char*   tem_cSrc = T2A(tem_strHDRImg);
+		char*   tem_cDst = T2A(tem_strFilePath);
+		tem_dcm->SaveIMAGEtoDCM(tem_cSrc, tem_cDst);
+
+		delete tem_dcm;
+
+	}
+	else if (m_nLastImgType == 3)
+	{
+		//将jpg图像转为tif图像
+		CxImage tem_cxJPG;
+		tem_cxJPG.Load(tem_strHDRImg, CMAX_IMAGE_FORMATS);
+		tem_cxJPG.SetCodecOption(5, CXIMAGE_FORMAT_TIF);
+		tem_cxJPG.Save(tem_strFilePath, CXIMAGE_FORMAT_TIF);	 
+	}
+	else
+	{
+		CopyFile(tem_strHDRImg, tem_strFilePath, FALSE);
+	}
+	::DeleteFile(tem_strHDRImg);
+	if (m_nUIMode == 0 || m_nUIMode == 3)
+	{
+		m_dlgGet.Self_HideCtrls(10);
+		m_vcImgName.push_back(imgname);
+		m_vcThumbPath.push_back(tem_strThumbPath);
+		ThumbaiList(m_nThumbWidth, m_nThumbHeight);
+		Self_ShowImgInfo(tem_strFilePath);
+	}
+	
+	m_vcFilePath.push_back(tem_strFilePath);
+	
+//	m_nImageCount++;
+	m_vcSomeStrInfo.clear();
+
+	//拍摄完成-------------------------------
+	if (m_nUIMode == 0 || m_nUIMode == 3)
+	{
+		m_dlgGet.Self_HideCtrls(0);
+	}
+	::WritePrivateProfileString(_T("BaseSet"), _T("TalkCode"), _T("0"), g_strIniPath);
+	::PostMessage(g_hCtrHwnd, WM_CAPTUREOVER, 0, 0);
+	return 0;
+}
+
+
+
+void CSmartFilmUI::Self_ResetParamers(void)
+{
+	Self_ReadXml(g_strProXmlPath);
+}
+
+
+void CSmartFilmUI::Self_SetSaveDir(CString dir)
+{
+	m_strSaveDoc = dir;	
+}
+
+
+int CSmartFilmUI::Self_SetRectMode(int mode)
+{
+	int tem_nRC = 0;
+	if (mode==0)
+	{
+		//手动裁切
+		tem_nRC = m_conOCX.ManualImageCrop(TRUE);
+		tem_nRC = m_conOCX.AdjuestImageCrop(FALSE);
+		m_conOCX.SetMessage(1);
+	} 
+	else if(mode==2)
+	{
+		tem_nRC = m_conOCX.ManualImageCrop(FALSE);
+		tem_nRC = m_conOCX.AdjuestImageCrop(FALSE);
+	}
+	return tem_nRC;
+}
+
+
+int CSmartFilmUI::Self_CaptureImage(CString imgname, int mode)
+{
+	if(mode == 0)
+	{
+		//普通拍摄
+		Self_CaptureImg(imgname);
+		m_nPrcsIndex = -1;
+		::PostMessage(g_hCtrHwnd, WM_CAPTUREOVER, 0, 0);
+	}
+	else if (mode == 1)
+	{
+		//高密度
+		m_strCurImgName = imgname;
+		m_nCurImgMode = 1;
+		Self_CaptureImgHDRThread(imgname, 1, 0);
+
+		m_nPrcsIndex = -1;
+	} 
+	else if(mode == 2)
+	{
+		//低密度
+		m_strCurImgName = imgname;
+		m_nCurImgMode = 0;
+
+		Self_CaptureImgHDRThread(imgname, 0, 0);
+
+		m_nPrcsIndex = -1;
+	}
+	
+	return 0;
+}
+
+
+int CSmartFilmUI::Self_SetWaterMark(LONG _mode, LONG _site, LONG _size, LONG _font, CString _color, CString _info, LONG _type)
+{
+	m_nWaterMark = _mode;
+
+	m_nWaterSite = _site;
+
+	m_nWaterSize = _size;
+
+	m_nWaterFont = _font;
+
+	m_strWaterColor = _color;
+
+	m_strWaterInfo = _info;
+
+	m_nWaterMode = _type;
+
+	return 0;
+}
+
+
+void CSmartFilmUI::OnItemchangedListImage(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
+	// TODO: 在此添加控件通知处理程序代码
+	if (pNMLV->uChanged==LVIF_STATE)
+	{
+		if (pNMLV->uNewState & LVIS_SELECTED)
+		{
+			if (m_BShowPicCtrl)
+			{
+				int  tem_nListIndex = pNMLV->iItem;
+				if (tem_nListIndex>=0 && tem_nListIndex<m_conListCtrl.GetItemCount())
+				{
+					//判断图像是否保存
+					if (m_vcHistoryImg.size()>2)
+					{
+						if (m_BNoSaved)
+						{
+							int tem_nClose = MessageBox(_T("修改尚未保存！是否保存？"), _T("保存"), MB_YESNO);
+							if (tem_nClose == 6)
+							{
+								//确定保存
+								CString tem_strNewImgPath = m_vcHistoryImg.back();
+								CopyFile(tem_strNewImgPath, m_strFilesPath, FALSE);
+								m_BNoSaved = FALSE;
+								Self_UpdateThumb(m_nPrcsIndex, m_strFilesPath);
+							}					
+						}
+					}
+					//删除缓存图像
+					if (m_vcHistoryImg.size()>1)
+					{
+						std::vector<CString>::iterator item;
+						for (item=m_vcHistoryImg.begin()+1; item!=m_vcHistoryImg.end(); item++)
+						{
+							DeleteFile(*item);
+						}
+						m_vcHistoryImg.clear();				
+					}			
+
+					//重新加载图像		
+					m_nPrcsIndex = tem_nListIndex;
+					CString  tem_strImgPath = m_vcFilePath[tem_nListIndex];
+					CString  tem_strImgFormat = PathFindExtension(tem_strImgPath);
+					if (tem_strImgFormat != _T(".pdf") && tem_strImgFormat != _T(".dcm"))
+					{		
+						Self_ClearPicCtrl();
+						Self_CVShowImage(tem_strImgPath);	
+					}
+					else
+					{
+						//选择非图像文件，清空picture控件
+						m_nPrcsIndex = -1;
+						Self_ClearPicCtrl();
+						//显示提示信息
+						Self_CVShowTipImage(_T("res\\tips.jpg"));
+						//清空当前图像
+					}	
+				}
+			}
+			else
+			{
+				int  tem_nListIndex = pNMLV->iItem;
+				if (tem_nListIndex>=0 && tem_nListIndex<m_conListCtrl.GetItemCount())
+				{
+					m_nPrcsIndex = tem_nListIndex;
+				}
+			}
+		}
+	}
+
+	*pResult = 0;
 }

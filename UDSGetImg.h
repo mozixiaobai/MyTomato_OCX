@@ -93,4 +93,7 @@ public:
 	void Self_ShowImgInfo(CString info);
 	CEdit m_conEditInfo;
 	afx_msg void OnClickedChkAdelay();
+	CProgressCtrl m_conProgress;
+	CString m_staProgress;
+	void Self_HideCtrls(int mode);
 };

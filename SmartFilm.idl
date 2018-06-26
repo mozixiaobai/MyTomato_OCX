@@ -23,6 +23,21 @@ library SmartFilmLib
 		methods:
 
 			[id(DISPID_ABOUTBOX)] void AboutBox();
+			[id(1)] LONG Init(LONG _uimode);
+			[id(2)] LONG UnInit(void);
+			[id(3)] LONG SetResolution(LONG _index);
+			[id(4)] LONG SetFormat(LONG _index);
+			[id(5)] LONG SetBriCst(LONG _value, LONG _mode);
+			[id(6)] LONG SetFocus(LONG _value);
+			[id(7)] LONG SetLight(LONG _value);
+			[id(8)] LONG SetDelay(LONG _value);
+			[id(9)] LONG AutoDelay(void);
+			[id(10)] LONG SetRotate(LONG _index);
+			[id(11)] LONG ResetParamers(void);
+			[id(12)] void SetSaveDir(BSTR _dir);
+			[id(13)] LONG SetRectMode(LONG _mode);
+			[id(14)] LONG CaptureImage(BSTR _imgpath, LONG _mode);
+			[id(15)] LONG SetWaterMark(LONG _mode, LONG _site, LONG _size, LONG _font, BSTR _color, BSTR _info, LONG _type);
 	};
 
 	//  CSmartFilmCtrl 的事件调度接口
@@ -37,6 +52,7 @@ library SmartFilmLib
 
 		methods:
 			[id(1)] void InitOver(void);
+			[id(2)] void CaptureOver(BSTR _filepath);
 	};
 
 	//  CSmartFilmCtrl 的类信息

@@ -6,6 +6,8 @@
 #include "SmartFilmPropPage.h"
 #include "afxdialogex.h"
 
+extern HWND g_hMainHwnd;
+HWND g_hCtrHwnd;
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -21,6 +23,7 @@ IMPLEMENT_DYNCREATE(CSmartFilmCtrl, COleControl)
 BEGIN_MESSAGE_MAP(CSmartFilmCtrl, COleControl)
 	ON_OLEVERB(AFX_IDS_VERB_PROPERTIES, OnProperties)
 	ON_WM_CREATE()
+	ON_MESSAGE(WM_CAPTUREOVER, &CSmartFilmCtrl::OnCaptureover)
 END_MESSAGE_MAP()
 
 
@@ -29,6 +32,21 @@ END_MESSAGE_MAP()
 
 BEGIN_DISPATCH_MAP(CSmartFilmCtrl, COleControl)
 	DISP_FUNCTION_ID(CSmartFilmCtrl, "AboutBox", DISPID_ABOUTBOX, AboutBox, VT_EMPTY, VTS_NONE)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "Init", dispidInit, Init, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "UnInit", dispidUnInit, UnInit, VT_I4, VTS_NONE)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetResolution", dispidSetResolution, SetResolution, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetFormat", dispidSetFormat, SetFormat, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetBriCst", dispidSetBriCst, SetBriCst, VT_I4, VTS_I4 VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetFocus", dispidSetFocus, SetFocus, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetLight", dispidSetLight, SetLight, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetDelay", dispidSetDelay, SetDelay, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "AutoDelay", dispidAutoDelay, AutoDelay, VT_I4, VTS_NONE)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetRotate", dispidSetRotate, SetRotate, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "ResetParamers", dispidResetParamers, ResetParamers, VT_I4, VTS_NONE)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetSaveDir", dispidSetSaveDir, SetSaveDir, VT_EMPTY, VTS_BSTR)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetRectMode", dispidSetRectMode, SetRectMode, VT_I4, VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "CaptureImage", dispidCaptureImage, CaptureImage, VT_I4, VTS_BSTR VTS_I4)
+	DISP_FUNCTION_ID(CSmartFilmCtrl, "SetWaterMark", dispidSetWaterMark, SetWaterMark, VT_I4, VTS_I4 VTS_I4 VTS_I4 VTS_I4 VTS_BSTR VTS_BSTR VTS_I4)
 END_DISPATCH_MAP()
 
 
@@ -37,6 +55,7 @@ END_DISPATCH_MAP()
 
 BEGIN_EVENT_MAP(CSmartFilmCtrl, COleControl)
 	EVENT_CUSTOM_ID("InitOver", eventidInitOver, InitOver, VTS_NONE)
+	EVENT_CUSTOM_ID("CaptureOver", eventidCaptureOver, CaptureOver, VTS_BSTR)
 END_EVENT_MAP()
 
 //Implementation of IObjectSafety自己添加部分-------------------------------
@@ -196,7 +215,8 @@ int CSmartFilmCtrl::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	// TODO:  在此添加您专用的创建代码
 	m_dlgUI.m_hWnd=m_hWnd;
 	m_dlgUI.Create(IDD_DLG_UI, this);
-
+	InitOver();
+	g_hCtrHwnd = this->m_hWnd;
 
 	return 0;
 }
@@ -338,20 +358,177 @@ STDMETHODIMP CSmartFilmCtrl::XObjectSafety::QueryInterface(
 // ------------------------------------------------------------------------
 
 
-int CSmartFilmCtrl::Init(void)
+
+
+LONG CSmartFilmCtrl::Init(LONG _uimode)
 {
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	m_dlgUI.m_nUIMode = _uimode;
+	::SendMessage(g_hMainHwnd, WM_SIZE, 0, 0);
+
+	return 0;
+}
+
+
+LONG CSmartFilmCtrl::UnInit(void)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	m_dlgUI.StopRun();
+
+	return 0;
+}
+
+
+LONG CSmartFilmCtrl::SetResolution(LONG _index)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.AdjustRes(_index);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::SetFormat(LONG _index)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.AdjustFormat(_index);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::SetBriCst(LONG _value, LONG _mode)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+    long rc = m_dlgUI.AdjustBriCst(_value, _mode);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::SetFocus(LONG _value)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.AdjustFocus(_value);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::SetLight(LONG _value)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.AdjustLight(_value);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::SetDelay(LONG _value)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.AdjustDelay(_value);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::AutoDelay(void)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.Self_GetIntervalTime();
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::SetRotate(LONG _index)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.AdjustRotate(_index);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::ResetParamers(void)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	m_dlgUI.Self_ResetParamers();
+
+	return 0;
+}
+
+
+void CSmartFilmCtrl::SetSaveDir(BSTR _dir)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	m_dlgUI.Self_SetSaveDir(_dir);
+}
+
+
+LONG CSmartFilmCtrl::SetRectMode(LONG _mode)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	long rc = m_dlgUI.Self_SetRectMode(_mode);
+
+	return rc;
+}
+
+
+LONG CSmartFilmCtrl::CaptureImage(BSTR _imgname, LONG _mode)
+{
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	m_dlgUI.Self_CaptureImage(_imgname, _mode);	
 	
 	return 0;
 }
 
 
-int CSmartFilmCtrl::UnInit(void)
+LONG CSmartFilmCtrl::SetWaterMark(LONG _mode, LONG _site, LONG _size, LONG _font, BSTR _color, BSTR _info, LONG _type)
 {
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	// TODO: 在此添加调度处理程序代码
+	m_dlgUI.Self_SetWaterMark(_mode, _site, _size, _font, _color, _info, _type);
+
 	return 0;
 }
 
 
-LONG CSmartFilmCtrl::SetUI(int uitype)
+afx_msg LRESULT CSmartFilmCtrl::OnCaptureover(WPARAM wParam, LPARAM lParam)
 {
+	CString tem_strCurFilePath = m_dlgUI.m_strCurImgPath;
+	BSTR tem_bstrCurFilePath = tem_strCurFilePath.AllocSysString();
+	SysFreeString(tem_bstrCurFilePath);
+	CaptureOver(tem_bstrCurFilePath);
 	return 0;
 }
